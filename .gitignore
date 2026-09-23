@@ -69,3 +69,5 @@ Testing/
 
 .ccls-cache/*
 ccls-cache/*
+
+.vscode

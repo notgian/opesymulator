@@ -21,7 +21,7 @@ void print_welcome() {
     cout << "|__/     \\__/|________/|________/ \\______/  \\______/ |__/     |__/|________/" << endl;
     cout << endl << endl;
     cout << "CSOPESY Emulator" << endl;
-    cout << "[NAMES] [S03]" << endl;
+    cout << "Agsalon - Ercia - Garcia - Ortha" << endl;
     cout << endl;
 }
 
@@ -42,11 +42,36 @@ enum class CommandStatus {
  */
 CommandStatus cmd_dispatch(const string& command) {
     static const std::unordered_map<std::string, std::function<CommandStatus()>> handlers = {
+        {"initialize", []() {
+            cout << "'initialize' command recognized. Doing something." << endl;
+            return CommandStatus::Success;
+        }},
+        {"screen", []() {
+            cout << "'screen' command recognized. Doing something." << endl;
+            return CommandStatus::Success;
+        }},
+        {"scheduler-start", []() {
+            cout << "'scheduler-start' command recognized. Doing something." << endl;
+            return CommandStatus::Success;
+        }},
+        {"scheduler-stop", []() {
+            cout << "'scheduler-stop' command recognized. Doing something." << endl;
+            return CommandStatus::Success;
+        }},
+        {"report-util", []() {
+            cout << "'report-util' command recognized. Doing something." << endl;
+            return CommandStatus::Success;
+        }},
+        {"clear", []() { 
+            cout << "\033[2J";
+            print_welcome();
+            return CommandStatus::Success; 
+        }},
         {"exit", []() { return CommandStatus::ExitRequest; }},
         {"help", []() { 
             // TODO: Implement help display
             return CommandStatus::Success; 
-        }}
+        }},
     };
 
     auto it = handlers.find(command);
