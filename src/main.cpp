@@ -2,7 +2,7 @@
 #include <string>
 #include <conio.h>
 #include <windows.h>
-#include "Screen.h"
+#include "Display.h"
 #include "Component.h"
 #include "ConsoleScreen.h"
 #include "CommandInterpreter.h"
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     int screenHeight = 25;
     bool running = true;
 
-    Screen MainScreen(screenWidth, screenHeight);
+    Display MainDisplay(screenWidth, screenHeight);
     ConsoleScreen Console(0, 0, screenWidth, screenHeight, "Command> ");
     CommandInterpreter interpreter;
 
@@ -79,9 +79,9 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        MainScreen.update(Console);
-        MainScreen.draw();
-        MainScreen.clearBuffer();
+        MainDisplay.update(Console);
+        MainDisplay.draw();
+        MainDisplay.clearBuffer();
 
         Sleep(1);
     }

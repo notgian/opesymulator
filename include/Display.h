@@ -4,24 +4,24 @@
 #include <vector>
 #include <string>
 
-class Screen {
+class Display {
     public:
-        Screen(int width, int height);
-        virtual ~Screen() = default;
+        Display(int width, int height);
+        virtual ~Display() = default;
 
-        // --- Screen Dimensions ---
+        // --- Display Dimensions ---
         int getWidth() const;
         int getHeight() const;
         void resize(int width, int height);
 
         // --- Display & Rendering ---
-        // Composites a single components onto the screen buffer
+        // Composites a single components onto the display buffer
         void update(const Component &component);
 
         // Prints buffer to stdout
         void draw() const;
 
-        // Clears the master screen buffer to spaces
+        // Clears the master display buffer to spaces
         void clearBuffer();
 
     protected:

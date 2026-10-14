@@ -1,25 +1,25 @@
-#include "Screen.h"
+#include "Display.h"
 #include <iostream>
 
-Screen::Screen(int width, int height) 
+Display::Display(int width, int height) 
     : width_(width), height_(height) {
     clearBuffer();
 }
 
-int Screen::getWidth() const { return width_; }
-int Screen::getHeight() const { return height_; }
+int Display::getWidth() const { return width_; }
+int Display::getHeight() const { return height_; }
 
-void Screen::resize(int width, int height) {
+void Display::resize(int width, int height) {
     width_ = width;
     height_ = height;
     // clearBuffer();
 }
 
-void Screen::clearBuffer() {
+void Display::clearBuffer() {
     screenBuffer_.assign(height_, std::string(width_, ' '));
 }
 
-void Screen::update(const Component& component) {
+void Display::update(const Component& component) {
     int compX = component.getX();
     int compY = component.getY();
     const std::vector<std::string>& text = component.getText();
@@ -43,7 +43,7 @@ void Screen::update(const Component& component) {
 }
 
 // Does not update the buffer; Only draws to stdout
-void Screen::draw() const {
+void Display::draw() const {
     std::string renderedDisplay;
     
     // Optional performance boost: reserve memory up-front if screenBuffer_ is not empty
