@@ -1,11 +1,22 @@
 # CSOPESYMULATOR
 An OS Emulator made for CSOPESY
 
-## Manual Build
-Manual building and running with g++
+Group Members:
+- GIAN LORENZO ORTHA
+- GIANELA KIM AGSALON
+- MARC JARED SEAN ERCIA
+- THEON SCHUYLER GARCIA
 
-*NOTE: will update for Windows soon!!*
+Entry class file:
+main.cpp
+
+## Manual Build
+Just click the run button in VSCODE. 
+TODO NOTE: This will likely have to be fixed with a custom build task in the future.
+
+OR Manual building and running with g++
 
 ```bash
-g++ main.cpp -o main.out && ./main.out  
+.\build.bat
+.\main.exe
 ```
