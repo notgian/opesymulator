@@ -6,18 +6,12 @@ ConsoleScreen::ConsoleScreen(int row, int col, int width, int height, const std:
     : Component(row, col, width, height),
       prompt_(prompt),
       inputBuffer_(""),
-      commandHandler_(nullptr),
-      exitRequested_(false) {
+      onCommandSubmitted_(nullptr) {
     refreshDisplay();
 }
 
-// --- Input events ---
-
 void ConsoleScreen::handleKeyPress(char key) {
-    // Guard against control characters sneaking in through this path;
-    // Enter/Backspace/etc. have their own dedicated methods.
     if (!std::isprint(static_cast<unsigned char>(key))) return;
-
     inputBuffer_.push_back(key);
     refreshDisplay();
 }
@@ -30,39 +24,22 @@ void ConsoleScreen::handleBackspace() {
 }
 
 void ConsoleScreen::handleEnter() {
-    // Echo what was typed into the scrollback first, so it stays visible
-    // once the input line is cleared.
+    // Echo typed input into scrollback history
     history_.push_back(prompt_ + inputBuffer_);
 
     std::string commandText = inputBuffer_;
     inputBuffer_.clear();
 
-    if (commandHandler_) {
-        CommandResult result = commandHandler_(commandText);
-        for (const std::string& line : result.output) {
-            history_.push_back(line);
-        }
-        if (result.exitRequested) {
-            exitRequested_ = true;
-        }
+    if (onCommandSubmitted_) {
+        onCommandSubmitted_(commandText);
     }
 
     refreshDisplay();
 }
 
-// --- Wiring ---
-
-void ConsoleScreen::setCommandHandler(CommandHandler handler) {
-    commandHandler_ = handler;
+void ConsoleScreen::setOnCommandSubmitted(OnCommandSubmitted callback) {
+    onCommandSubmitted_ = callback;
 }
-
-bool ConsoleScreen::consumeExitRequested() {
-    bool requested = exitRequested_;
-    exitRequested_ = false;
-    return requested;
-}
-
-// --- Programmatic output ---
 
 void ConsoleScreen::print(const std::string& text) {
     std::stringstream ss(text);
@@ -73,7 +50,6 @@ void ConsoleScreen::print(const std::string& text) {
         history_.push_back(line);
         any = true;
     }
-    // Preserve intentional blank lines, e.g. print("")
     if (!any) history_.push_back("");
 
     refreshDisplay();
@@ -91,8 +67,6 @@ void ConsoleScreen::clearHistory() {
     refreshDisplay();
 }
 
-// --- Accessors ---
-
 const std::string& ConsoleScreen::getCurrentInput() const {
     return inputBuffer_;
 }
@@ -106,12 +80,6 @@ void ConsoleScreen::setPrompt(const std::string& prompt) {
     refreshDisplay();
 }
 
-// --- Internal ---
-
-// Rebuilds this component's text_ (inherited from Component) from the
-// scrollback + current input line, keeping only as many history lines
-// as fit above the input line within height_. This is the one place
-// that turns "console state" into "what Screen should draw".
 void ConsoleScreen::refreshDisplay() {
     std::vector<std::string> visible;
 
