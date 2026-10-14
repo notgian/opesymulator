@@ -1,13 +1,23 @@
 #pragma once
 
+#include "Display.h"
+#include "ConsoleScreen.h"
+#include "CommandInterpreter.h"
+
 
 class Kernel {
-    public:
-        Kernel();
-        virtual ~Kernel() = default;
+public:
+    Kernel(int screenWidth, int screenHeight);
+    virtual ~Kernel() = default;
 
+    void run();
 
-        void run();
+private:
+    void printWelcome();
+    void clearScreen();
 
-    private:
+    Display mainDisplay_;
+    ConsoleScreen consoleScreen_;
+    CommandInterpreter interpreter_;
+    bool running_;
 };
