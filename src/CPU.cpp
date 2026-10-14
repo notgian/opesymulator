@@ -1,0 +1,53 @@
+#include "CPU.h"
+#include <iostream>
+
+CPU::CPU(int numCores) {
+    for (int i = 0; i < numCores; ++i) {
+        cores_.push_back({i, false, nullptr});
+    }
+}
+
+bool CPU::assignProcessToCore(int coreId, std::shared_ptr<ProcessControlBlock> pcb) {
+    if (coreId >= 0 && coreId < static_cast<int>(cores_.size())) {
+        if (!cores_[coreId].isBusy) {
+            cores_[coreId].currentProcess = pcb;
+            cores_[coreId].isBusy = true;
+            pcb->setState(ProcessState::RUNNING);
+            return true;
+        }
+    }
+    return false;
+}
+
+void CPU::clearCore(int coreId) {
+    if (coreId >= 0 && coreId < static_cast<int>(cores_.size())) {
+        if (cores_[coreId].currentProcess) {
+            cores_[coreId].currentProcess->setState(ProcessState::TERMINATED);
+        }
+        cores_[coreId].currentProcess = nullptr;
+        cores_[coreId].isBusy = false;
+    }
+}
+
+void CPU::executeCycle() {
+    // Simulate one instruction fetch-decode-execute cycle across all active cores
+    for (auto& core : cores_) {
+        if (core.isBusy && core.currentProcess) {
+            // PC steps forward
+            int currentPC = core.currentProcess->getProgramCounter();
+            core.currentProcess->setProgramCounter(currentPC + 1);
+        }
+    }
+}
+
+int CPU::getNumCores() const {
+    return static_cast<int>(cores_.size());
+}
+
+const CPUCore& CPU::getCore(int coreId) const {
+    return cores_.at(coreId);
+}
+
+bool CPU::isCoreBusy(int coreId) const {
+    return cores_.at(coreId).isBusy;
+}

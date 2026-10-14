@@ -23,8 +23,12 @@ public:
 
     // Accessors
     int getPID() const;
+    int getProgramCounter() const;
     const std::string& getName() const;
     ProcessState getState() const;
+
+    void setState(ProcessState state);
+    void setProgramCounter(int pc);
 
 
 private:

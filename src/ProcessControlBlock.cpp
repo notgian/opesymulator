@@ -41,3 +41,15 @@ const std::string& ProcessControlBlock::getName() const {
 ProcessState ProcessControlBlock::getState() const {
     return state_;
 }
+
+int ProcessControlBlock::getProgramCounter() const {
+    return programCounter_;
+}
+
+void ProcessControlBlock::setState(ProcessState state) {
+    this->state_ = state;
+}
+
+void ProcessControlBlock::setProgramCounter(int pc) {
+    this->programCounter_ = pc;
+}
