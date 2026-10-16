@@ -44,6 +44,9 @@ void Kernel::run() {
     // --- SIMULATION SETUP: Pre-initialize 10 processes before the loop ---
     // ---------------------------------------------------------------------
     // TODO: remove for actual emulator
+
+    std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses;
+
     struct ProcessArrival {
         long long arrivalTick;
         std::shared_ptr<ProcessControlBlock> pcb;
@@ -63,7 +66,39 @@ void Kernel::run() {
         // Stagger arrival times (e.g., a new process arrives every 30 kernel ticks)
         long long arrivalTick = static_cast<long long>(i) * 30;
         pendingProcesses.push_back({arrivalTick, pcb});
+
+        // Keep track of all processes for the screen -ls command lookup
+        allProcesses.push_back(pcb);
     }
+
+    // --- 2. TEMPORARY COMMAND REGISTRATION ---
+    // Register 'screen' dynamically, capturing the local allProcesses vector by reference
+    // NOTE: with the way that the command interpreter works, we don't rlly have anything for the args themselves rn
+    //       so this is kinda hacky, but it works shhhh
+    interpreter_.registerCommand("screen", [&allProcesses](const std::string&) {
+        std::vector<std::string> outputLines;
+        outputLines.push_back("=== Finished Processes ===");
+        
+        int finishedCount = 0;
+        for (const auto& pcb : allProcesses) {
+            if (pcb->getState() == ProcessState::TERMINATED) {
+                outputLines.push_back(" - " + pcb->getName() + " (PID: " + std::to_string(pcb->getPID()) + ")");
+                finishedCount++;
+            }
+        }
+
+        if (finishedCount == 0) {
+            outputLines.push_back(" (No processes completed yet)");
+        } else {
+            outputLines.push_back("Total finished: " + std::to_string(finishedCount) + " / " + std::to_string(allProcesses.size()));
+        }
+
+        return CommandResult{
+            CommandStatus::SUCCESS,
+            outputLines
+        };
+    });
+
 
     // Temporary simulation tracking variable
     long long kernelTickCounter = 0;
