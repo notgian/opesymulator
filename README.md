@@ -12,7 +12,6 @@ main.cpp
 
 ## Manual Build
 Just click the run button in VSCODE. 
-TODO NOTE: This will likely have to be fixed with a custom build task in the future.
 
 OR Manual building and running with g++
 
