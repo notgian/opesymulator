@@ -4,6 +4,7 @@
 #include "ConsoleScreen.h"
 #include "CommandInterpreter.h"
 #include "CPU.h"
+#include "Scheduler.h"
 
 
 class Kernel {
@@ -22,6 +23,7 @@ private:
     CommandInterpreter interpreter_;
 
     CPU cpu_;
+    Scheduler scheduler_;
 
     bool running_;
 };

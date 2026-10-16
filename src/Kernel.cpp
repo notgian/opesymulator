@@ -7,6 +7,7 @@ Kernel::Kernel(int screenWidth, int screenHeight)
     : mainDisplay_(screenWidth, screenHeight),
       consoleScreen_(0, 0, screenWidth, screenHeight, "Command> "),
       cpu_(4),
+      scheduler_(),
       running_(true) {
     
     printWelcome();
@@ -60,6 +61,7 @@ void Kernel::run() {
 
         // cpu tick and scheduler
         cpu_.executeCycle();
+        scheduler_.update(cpu_);
         // TODO: scheduler does its thing here
 
         // Update display buffer and render
