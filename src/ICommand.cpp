@@ -5,10 +5,6 @@ ICommand::ICommand(int pid, ICommandType commandType) : pid_(pid), commandType_(
 
 };
 
-ICommandType ICommand::getCommandType() {
+ICommandType ICommand::getCommandType() const {
     return this->commandType_;
-}
-
-void ICommand::execute() {
-    // Do something
 }

@@ -30,7 +30,8 @@ void CPU::clearCore(int coreId) {
 }
 
 void CPU::executeCycle() {
-    for (auto& core : cores_) {
+    for (int i = 0; i < static_cast<int>(cores_.size()); ++i) {
+        auto& core = cores_[i];
         if (core.isBusy && core.currentProcess) {
             auto pcb = core.currentProcess;
             // Check first if process is running
@@ -39,7 +40,7 @@ void CPU::executeCycle() {
             }
                 
             // Execute the command instruction and advance PC
-            pcb->executeCurrentCommand();
+            pcb->executeCurrentCommand(i);
             pcb->moveToNextLine();
 
             // Check if the process has finished

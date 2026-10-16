@@ -12,14 +12,11 @@ void ProcessControlBlock::addCommand(std::shared_ptr<ICommand> command) {
 }
 
 // TODO: may need to revisit
-void ProcessControlBlock::executeCurrentCommand() {
+void ProcessControlBlock::executeCurrentCommand(int coreId) {
     if (programCounter_ >= 0 && programCounter_ < static_cast<int>(commandList.size())) {
         if (commandList[programCounter_]) {
-            // Note: Adjust the execute signature depending on your ICommand interface 
-            // (e.g., passing symbolTable if commands need access to process variables)
-            // commandList[programCounter_]->execute(symbolTable);
-            
-            commandList[programCounter_]->execute(); 
+            symbolTable.setVariable("CORE_ID", coreId); 
+            commandList[programCounter_]->execute(symbolTable); 
         }
     }
 }

@@ -18,7 +18,7 @@ public:
     ProcessControlBlock(int pid, const std::string& name);
 
     void addCommand(std::shared_ptr<ICommand> command);
-    void executeCurrentCommand();
+    void executeCurrentCommand(int coreId);
     void moveToNextLine();
     bool hasFinished() const;
 
