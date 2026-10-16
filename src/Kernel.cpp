@@ -6,6 +6,7 @@
 Kernel::Kernel(int screenWidth, int screenHeight)
     : mainDisplay_(screenWidth, screenHeight),
       consoleScreen_(0, 0, screenWidth, screenHeight, "Command> "),
+      cpu_(4),
       running_(true) {
     
     printWelcome();
@@ -57,12 +58,17 @@ void Kernel::run() {
             }
         }
 
+        // cpu tick and scheduler
+        cpu_.executeCycle();
+        // TODO: scheduler does its thing here
+
         // Update display buffer and render
         mainDisplay_.update(consoleScreen_);
         mainDisplay_.draw();
         mainDisplay_.clearBuffer();
 
-        Sleep(1); // Brief pause to prevent 100% CPU usage
+        // Brief pause to prevent 100% CPU usage
+        Sleep(1); 
     }
 }
 

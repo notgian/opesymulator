@@ -30,6 +30,10 @@ void ProcessControlBlock::moveToNextLine() {
     }
 }
 
+bool ProcessControlBlock::hasFinished() const {
+    return programCounter_ >= static_cast<int>(commandList.size());
+}
+
 int ProcessControlBlock::getPID() const {
     return pid_;
 }

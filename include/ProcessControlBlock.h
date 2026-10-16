@@ -20,6 +20,7 @@ public:
     void addCommand(std::shared_ptr<ICommand> command);
     void executeCurrentCommand();
     void moveToNextLine();
+    bool hasFinished() const;
 
     // Accessors
     int getPID() const;

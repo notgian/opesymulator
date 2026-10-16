@@ -3,6 +3,7 @@
 #include "Display.h"
 #include "ConsoleScreen.h"
 #include "CommandInterpreter.h"
+#include "CPU.h"
 
 
 class Kernel {
@@ -19,5 +20,8 @@ private:
     Display mainDisplay_;
     ConsoleScreen consoleScreen_;
     CommandInterpreter interpreter_;
+
+    CPU cpu_;
+
     bool running_;
 };

@@ -30,12 +30,26 @@ void CPU::clearCore(int coreId) {
 }
 
 void CPU::executeCycle() {
-    // Simulate one instruction fetch-decode-execute cycle across all active cores
     for (auto& core : cores_) {
         if (core.isBusy && core.currentProcess) {
-            // PC steps forward
-            int currentPC = core.currentProcess->getProgramCounter();
-            core.currentProcess->setProgramCounter(currentPC + 1);
+            auto pcb = core.currentProcess;
+            // Check first if process is running
+            if (pcb->getState() != ProcessState::RUNNING) {
+                continue;
+            }
+                
+            // Execute the command instruction and advance PC
+            pcb->executeCurrentCommand();
+            pcb->moveToNextLine();
+
+            // Check if the process has finished
+            if (pcb->hasFinished()) {
+                pcb->setState(ProcessState::TERMINATED);
+                
+                // Release the core
+                core.currentProcess = nullptr;
+                core.isBusy = false;
+            }
         }
     }
 }
