@@ -7,4 +7,4 @@ ICommand::ICommand(int pid, ICommandType commandType) : pid_(pid), commandType_(
 
 ICommandType ICommand::getCommandType() const {
     return this->commandType_;
-}
+}

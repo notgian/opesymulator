@@ -26,4 +26,4 @@ private:
     Scheduler scheduler_;
 
     bool running_;
-};
+};

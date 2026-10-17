@@ -1,8 +1,10 @@
 #include "ProcessControlBlock.h"
+#include "TimeUtil.h"
 
 ProcessControlBlock::ProcessControlBlock(int pid, const std::string& name)
     : pid_(pid),
       name_(name),
+      creationTime_(currentTimestamp()),
       state_(ProcessState::READY),
       programCounter_(0) {
 }
@@ -22,7 +24,7 @@ void ProcessControlBlock::executeCurrentCommand(int coreId) {
 }
 
 void ProcessControlBlock::moveToNextLine() {
-    if (programCounter_ < static_cast<int>(commandList.size())) {
+    if (programCounter_.load() < static_cast<int>(commandList.size())) {
         programCounter_++;
     }
 }
@@ -40,7 +42,15 @@ const std::string& ProcessControlBlock::getName() const {
 }
 
 ProcessState ProcessControlBlock::getState() const {
-    return state_;
+    return state_.load();
+}
+
+int ProcessControlBlock::getTotalCommands() const {
+    return static_cast<int>(commandList.size());
+}
+
+const std::string& ProcessControlBlock::getCreationTime() const {
+    return creationTime_;
 }
 
 int ProcessControlBlock::getProgramCounter() const {
@@ -48,9 +58,9 @@ int ProcessControlBlock::getProgramCounter() const {
 }
 
 void ProcessControlBlock::setState(ProcessState state) {
-    this->state_ = state;
+    state_.store(state);
 }
 
 void ProcessControlBlock::setProgramCounter(int pc) {
-    this->programCounter_ = pc;
-}
+    programCounter_.store(pc);
+}

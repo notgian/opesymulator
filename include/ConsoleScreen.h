@@ -36,4 +36,4 @@ private:
     std::string inputBuffer_;
     std::vector<std::string> history_;
     OnCommandSubmitted onCommandSubmitted_;
-};
+};

@@ -1,6 +1,11 @@
 #include "Scheduler.h"
+#include <chrono>
 
 Scheduler::Scheduler() : currentMode_(SchedulerMode::FCFS) {}
+
+Scheduler::~Scheduler() {
+    stop();
+}
 
 void Scheduler::setMode(SchedulerMode mode) {
     currentMode_ = mode;
@@ -12,7 +17,24 @@ SchedulerMode Scheduler::getMode() const {
 
 void Scheduler::addProcess(std::shared_ptr<ProcessControlBlock> pcb) {
     pcb->setState(ProcessState::READY);
+    std::lock_guard<std::mutex> lock(queueMutex_);
     readyQueue_.push(pcb);
+}
+
+void Scheduler::start(CPU& cpu) {
+    if (thread_.joinable()) return;
+    stopping_ = false;
+    thread_ = std::thread([this, &cpu] {
+        while (!stopping_) {
+            update(cpu);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    });
+}
+
+void Scheduler::stop() {
+    stopping_ = true;
+    if (thread_.joinable()) thread_.join();
 }
 
 void Scheduler::update(CPU& cpu) {
@@ -27,14 +49,18 @@ void Scheduler::update(CPU& cpu) {
 }
 
 void Scheduler::FCFCSchedule(CPU& cpu) {
-    // Check available CPU cores and feed processes from the ready queue
+    // First-come-first-serve: the oldest process in the ready queue goes to the
+    // first idle core. Processes are never preempted.
     for (int i = 0; i < cpu.getNumCores(); ++i) {
-        if (!cpu.isCoreBusy(i) && !readyQueue_.empty()) {
-            auto nextProcess = readyQueue_.front();
-            readyQueue_.pop();
+        if (cpu.isCoreBusy(i)) continue;
 
-            // Assign it to the idle core (internally switches its state to RUNNING)
-            cpu.assignProcessToCore(i, nextProcess);
+        std::shared_ptr<ProcessControlBlock> nextProcess;
+        {
+            std::lock_guard<std::mutex> lock(queueMutex_);
+            if (readyQueue_.empty()) return;
+            nextProcess = readyQueue_.front();
+            readyQueue_.pop();
         }
+        cpu.assignProcessToCore(i, nextProcess);
     }
 }

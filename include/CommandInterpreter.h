@@ -30,4 +30,4 @@ class CommandInterpreter {
     private:
         void splitCommand(const std::string& commandLine, std::string& name, std::string& args);
         std::unordered_map<std::string, CommandHandler> handlers_;
-};
+};

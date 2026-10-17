@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -25,6 +26,8 @@ public:
     // Accessors
     int getPID() const;
     int getProgramCounter() const;
+    int getTotalCommands() const;
+    const std::string& getCreationTime() const;
     const std::string& getName() const;
     ProcessState getState() const;
 
@@ -35,9 +38,12 @@ public:
 private:
     int pid_;
     std::string name_;
-    ProcessState state_;
-    int programCounter_;
+    std::string creationTime_;
+
+    // Atomic: written by a CPU worker thread, read by the UI thread (screen -ls)
+    std::atomic<ProcessState> state_;
+    std::atomic<int> programCounter_;
 
     std::vector<std::shared_ptr<ICommand>> commandList;
     SymbolTable symbolTable;
-};
+};

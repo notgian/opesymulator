@@ -1,5 +1,6 @@
 #include "CPU.h"
-#include <iostream>
+#include "Config.h"
+#include <chrono>
 
 CPU::CPU(int numCores) {
     for (int i = 0; i < numCores; ++i) {
@@ -7,19 +8,46 @@ CPU::CPU(int numCores) {
     }
 }
 
-bool CPU::assignProcessToCore(int coreId, std::shared_ptr<ProcessControlBlock> pcb) {
-    if (coreId >= 0 && coreId < static_cast<int>(cores_.size())) {
-        if (!cores_[coreId].isBusy) {
-            cores_[coreId].currentProcess = pcb;
-            cores_[coreId].isBusy = true;
-            pcb->setState(ProcessState::RUNNING);
-            return true;
-        }
+CPU::~CPU() {
+    stop();
+}
+
+void CPU::start() {
+    if (!workers_.empty()) return;
+    stopping_ = false;
+    for (int i = 0; i < static_cast<int>(cores_.size()); ++i) {
+        workers_.emplace_back(&CPU::workerLoop, this, i);
     }
-    return false;
+}
+
+void CPU::stop() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stopping_ = true;
+    }
+    cv_.notify_all();
+    for (auto& t : workers_) {
+        if (t.joinable()) t.join();
+    }
+    workers_.clear();
+}
+
+bool CPU::assignProcessToCore(int coreId, std::shared_ptr<ProcessControlBlock> pcb) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (coreId < 0 || coreId >= static_cast<int>(cores_.size())) return false;
+        if (cores_[coreId].isBusy) return false;
+
+        cores_[coreId].currentProcess = pcb;
+        cores_[coreId].isBusy = true;
+        pcb->setState(ProcessState::RUNNING);
+    }
+    cv_.notify_all();   // wake that core's worker thread
+    return true;
 }
 
 void CPU::clearCore(int coreId) {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (coreId >= 0 && coreId < static_cast<int>(cores_.size())) {
         if (cores_[coreId].currentProcess) {
             cores_[coreId].currentProcess->setState(ProcessState::TERMINATED);
@@ -29,29 +57,32 @@ void CPU::clearCore(int coreId) {
     }
 }
 
-void CPU::executeCycle() {
-    for (int i = 0; i < static_cast<int>(cores_.size()); ++i) {
-        auto& core = cores_[i];
-        if (core.isBusy && core.currentProcess) {
-            auto pcb = core.currentProcess;
-            // Check first if process is running
-            if (pcb->getState() != ProcessState::RUNNING) {
-                continue;
-            }
-                
-            // Execute the command instruction and advance PC
-            pcb->executeCurrentCommand(i);
+// Worker thread: one per core
+void CPU::workerLoop(int coreId) {
+    while (true) {
+        std::shared_ptr<ProcessControlBlock> pcb;
+
+        {   // Wait until the scheduler hands this core a process
+            std::unique_lock<std::mutex> lock(mutex_);
+            cv_.wait(lock, [&] { return stopping_ || cores_[coreId].currentProcess != nullptr; });
+            if (stopping_) return;
+            pcb = cores_[coreId].currentProcess;
+        }
+
+        // Run the process until it finishes (non-preemptive, as FCFS requires)
+        while (!stopping_ && !pcb->hasFinished()) {
+            pcb->executeCurrentCommand(coreId);
             pcb->moveToNextLine();
 
-            // Check if the process has finished
-            if (pcb->hasFinished()) {
-                pcb->setState(ProcessState::TERMINATED);
-                
-                // Release the core
-                core.currentProcess = nullptr;
-                core.isBusy = false;
+            if (!pcb->hasFinished()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(INSTRUCTION_DELAY_MS));
             }
         }
+        if (stopping_) return;
+
+        // Mark finished and free the core in one atomic step so a "screen -ls"
+        // snapshot never sees the process as both running and finished.
+        clearCore(coreId);
     }
 }
 
@@ -59,10 +90,18 @@ int CPU::getNumCores() const {
     return static_cast<int>(cores_.size());
 }
 
-const CPUCore& CPU::getCore(int coreId) const {
-    return cores_.at(coreId);
+bool CPU::isCoreBusy(int coreId) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return cores_.at(coreId).isBusy;
 }
 
-bool CPU::isCoreBusy(int coreId) const {
-    return cores_.at(coreId).isBusy;
+std::vector<RunningEntry> CPU::getRunningProcesses() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<RunningEntry> result;
+    for (const auto& core : cores_) {
+        if (core.isBusy && core.currentProcess) {
+            result.push_back({core.coreId, core.currentProcess});
+        }
+    }
+    return result;
 }

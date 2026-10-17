@@ -8,6 +8,7 @@ CommandInterpreter::CommandInterpreter() {
             {
                 "Available commands:",
                 "  help                 - displays this list",
+                "  screen -ls           - lists running and finished processes",
                 "  clear                - clears the console history",
                 "  exit                 - terminates the console"
             }
@@ -61,4 +62,4 @@ void CommandInterpreter::splitCommand(const std::string& commandLine, std::strin
         name = commandLine.substr(0, spacePos);
         args = commandLine.substr(spacePos + 1);
     }
-}
+}

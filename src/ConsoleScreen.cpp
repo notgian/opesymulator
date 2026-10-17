@@ -94,4 +94,4 @@ void ConsoleScreen::refreshDisplay() {
     visible.push_back(prompt_ + inputBuffer_);
 
     setText(visible);
-}
+}

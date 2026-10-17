@@ -1,5 +1,8 @@
 #include "Kernel.h"
 #include "PrintCommand.h"  // TODO: temporary for now
+#include "Config.h"
+#include <algorithm>
+#include <cstdio>
 #include <iostream>
 #include <conio.h>
 #include <windows.h>
@@ -7,7 +10,7 @@
 Kernel::Kernel(int screenWidth, int screenHeight)
     : mainDisplay_(screenWidth, screenHeight),
       consoleScreen_(0, 0, screenWidth, screenHeight, "Command> "),
-      cpu_(4),
+      cpu_(NUM_CORES),
       scheduler_(),
       running_(true) {
     
@@ -39,71 +42,93 @@ Kernel::Kernel(int screenWidth, int screenHeight)
 
 void Kernel::run() {
     clearScreen();
-    
+
     // ---------------------------------------------------------------------
-    // --- SIMULATION SETUP: Pre-initialize 10 processes before the loop ---
+    // --- TEST CASE SETUP: 10 processes x 100 print commands at startup ---
     // ---------------------------------------------------------------------
     // TODO: remove for actual emulator
 
+#if ENABLE_PRINT_LOGS
+    CreateDirectoryA("logs", NULL);   // logs/screen_01.txt ... logs/screen_10.txt
+#endif
+
     std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses;
 
-    struct ProcessArrival {
-        long long arrivalTick;
-        std::shared_ptr<ProcessControlBlock> pcb;
-    };
-
-    std::vector<ProcessArrival> pendingProcesses;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
         int pid = i + 1;
-        auto pcb = std::make_shared<ProcessControlBlock>(pid, "Process_" + std::to_string(pid));
-        
-        // Add 100 print commands to each process
-        for (int j = 0; j < 100; ++j) {
-            std::string logMsg = "Execution log entry #" + std::to_string(j + 1) + " for PID " + std::to_string(pid);
-            pcb->addCommand(std::make_shared<PrintCommand>(pid, logMsg));
-        }
+        char nameBuf[32];
+        std::snprintf(nameBuf, sizeof(nameBuf), "screen_%02d", pid);
+        std::string name = nameBuf;
 
-        // Stagger arrival times (e.g., a new process arrives every 30 kernel ticks)
-        long long arrivalTick = static_cast<long long>(i) * 30;
-        pendingProcesses.push_back({arrivalTick, pcb});
+        auto pcb = std::make_shared<ProcessControlBlock>(pid, name);
+
+        // Each process owns a log file: "Process name: screen_01 / Logs:"
+        PrintCommand::initLogFile(name);
+
+        for (int j = 0; j < PRINTS_PER_PROCESS; ++j) {
+            pcb->addCommand(std::make_shared<PrintCommand>(pid, name, "Hello world from " + name + "!"));
+        }
 
         // Keep track of all processes for the screen -ls command lookup
         allProcesses.push_back(pcb);
     }
 
-    // --- 2. TEMPORARY COMMAND REGISTRATION ---
-    // Register 'screen' dynamically, capturing the local allProcesses vector by reference
-    // NOTE: with the way that the command interpreter works, we don't rlly have anything for the args themselves rn
-    //       so this is kinda hacky, but it works shhhh
-    interpreter_.registerCommand("screen", [&allProcesses](const std::string&) {
-        std::vector<std::string> outputLines;
-        outputLines.push_back("=== Finished Processes ===");
-        
-        int finishedCount = 0;
-        for (const auto& pcb : allProcesses) {
-            if (pcb->getState() == ProcessState::TERMINATED) {
-                outputLines.push_back(" - " + pcb->getName() + " (PID: " + std::to_string(pcb->getPID()) + ")");
-                finishedCount++;
-            }
+    // --- TEMPORARY COMMAND REGISTRATION ---
+    // 'screen -ls' prints the running / finished process lists
+    interpreter_.registerCommand("screen", [this, &allProcesses](const std::string& args) {
+        // trim whitespace around the argument
+        size_t b = args.find_first_not_of(' ');
+        size_t e = args.find_last_not_of(' ');
+        std::string arg = (b == std::string::npos) ? "" : args.substr(b, e - b + 1);
+
+        if (arg != "-ls") {
+            return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls"}};
         }
 
-        if (finishedCount == 0) {
-            outputLines.push_back(" (No processes completed yet)");
-        } else {
-            outputLines.push_back("Total finished: " + std::to_string(finishedCount) + " / " + std::to_string(allProcesses.size()));
+        const std::string separator(38, '-');
+        char buf[160];
+        std::vector<std::string> out;
+
+        out.push_back(separator);
+
+        // ---- Running processes (one per busy core) ----
+        out.push_back("Running processes:");
+        std::vector<RunningEntry> running = cpu_.getRunningProcesses();
+        for (const auto& entry : running) {
+            const auto& p = entry.process;
+            std::snprintf(buf, sizeof(buf), "%-12s (%s)   Core: %d   %d / %d",
+                          p->getName().c_str(), p->getCreationTime().c_str(), entry.coreId,
+                          p->getProgramCounter(), p->getTotalCommands());
+            out.push_back(buf);
         }
 
-        return CommandResult{
-            CommandStatus::SUCCESS,
-            outputLines
-        };
+        out.push_back("");
+
+        // ---- Finished processes ----
+        out.push_back("Finished processes:");
+        for (const auto& p : allProcesses) {
+            if (p->getState() != ProcessState::TERMINATED) continue;
+            std::snprintf(buf, sizeof(buf), "%-12s (%s)   Finished   %d / %d",
+                          p->getName().c_str(), p->getCreationTime().c_str(),
+                          p->getProgramCounter(), p->getTotalCommands());
+            out.push_back(buf);
+        }
+
+        out.push_back(separator);
+
+        return CommandResult{CommandStatus::SUCCESS, out};
     });
 
-
-    // Temporary simulation tracking variable
-    long long kernelTickCounter = 0;
+    // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.
+    // Everything is queued now (first-come-first-serve order = screen_01 first).
+    for (const auto& pcb : allProcesses) {
+        scheduler_.addProcess(pcb);
+    }
+    cpu_.start();
+    scheduler_.start(cpu_);
     // ---------------------------------------------------------------------
 
+    // Main (UI) thread: keyboard input + rendering only
     while (running_) {
         if (_kbhit()) {
             int intercepted = _getch();
@@ -124,40 +149,18 @@ void Kernel::run() {
             }
         }
 
-        // ----------------------------------
-        // --- PROCESS ARRIVAL SIMULATION ---
-        // ----------------------------------
-        // Check if any pending processes have reached their arrival time
-        // TODO: remove for actual emulator
-        for (auto it = pendingProcesses.begin(); it != pendingProcesses.end(); ) {
-            if (kernelTickCounter >= it->arrivalTick) {
-                // Add the process to the scheduler's ready pool
-                scheduler_.addProcess(it->pcb);
-                // Remove from pending list so it only arrives once
-                it = pendingProcesses.erase(it);
-            } else {
-                ++it;
-            }
-        }
-        // ----------------------------------
-
-        // cpu tick and scheduler
-        cpu_.executeCycle();
-        scheduler_.update(cpu_);
-        // TODO: scheduler does its thing here
-
         // Update display buffer and render
         mainDisplay_.update(consoleScreen_);
         mainDisplay_.draw();
         mainDisplay_.clearBuffer();
 
-        // Increment simulation tick counter
-        // TODO: remove for actual emulator
-        kernelTickCounter++;
-
         // Brief pause to prevent 100% CPU usage
-        Sleep(10); 
+        Sleep(10);
     }
+
+    // Shut the scheduler thread and the core worker threads down cleanly
+    scheduler_.stop();
+    cpu_.stop();
 }
 
 void Kernel::printWelcome() {
@@ -175,4 +178,4 @@ void Kernel::printWelcome() {
 
 void Kernel::clearScreen() {
     std::cout << "\033[2J\033[H";
-}
+}

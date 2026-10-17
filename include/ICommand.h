@@ -19,4 +19,4 @@ public:
 protected:
     int pid_;
     ICommandType commandType_;
-};
+};
