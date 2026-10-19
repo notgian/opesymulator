@@ -76,77 +76,67 @@ void Kernel::run() {
 
     // --- TEMPORARY COMMAND REGISTRATION ---
     // 'screen -ls' prints the running / finished process lists
-interpreter_.registerCommand("screen", [this](const std::string& args) {
-        // Trim leading and trailing whitespace from arguments
-        size_t b = args.find_first_not_of(' ');
-        if (b == std::string::npos) {
-            return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls OR screen -s <process_name>"}};
-        }
-        size_t e = args.find_last_not_of(' ');
-        std::string trimmedArgs = args.substr(b, e - b + 1);
+    interpreter_.registerCommand("screen -ls", [this](const std::string& args) {
+        const std::string separator(38, '-');
+        char buf[160];
+        std::vector<std::string> out;
 
-        // --- 1. Handle "screen -ls" ---
-        if (trimmedArgs == "-ls") {
-            const std::string separator(38, '-');
-            char buf[160];
-            std::vector<std::string> out;
+        out.push_back(separator);
 
-            out.push_back(separator);
-
-            // ---- Running processes (one per busy core) ----
-            out.push_back("Running processes:");
-            std::vector<RunningEntry> running = cpu_.getRunningProcesses();
-            for (const auto& entry : running) {
-                const auto& p = entry.process;
-                std::snprintf(buf, sizeof(buf), "%-12s (%s)    Core: %d   %d / %d",
-                        p->getName().c_str(), p->getCreationTime().c_str(), entry.coreId,
-                        p->getProgramCounter(), p->getTotalCommands());
-                out.push_back(buf);
-            }
-
-            out.push_back("");
-
-            // ---- Finished processes ----
-            out.push_back("Finished processes:");
-            for (const auto& p : allProcesses_) {
-                if (p->getState() != ProcessState::TERMINATED) continue;
-                std::snprintf(buf, sizeof(buf), "%-12s (%s)    Finished   %d / %d",
-                        p->getName().c_str(), p->getCreationTime().c_str(),
-                        p->getProgramCounter(), p->getTotalCommands());
-                out.push_back(buf);
-            }
-
-            out.push_back(separator);
-
-            return CommandResult{CommandStatus::SUCCESS, out};
+        // ---- Running processes (one per busy core) ----
+        out.push_back("Running processes:");
+        std::vector<RunningEntry> running = cpu_.getRunningProcesses();
+        for (const auto& entry : running) {
+            const auto& p = entry.process;
+            std::snprintf(buf, sizeof(buf), "%-12s (%s)    Core: %d   %d / %d",
+                    p->getName().c_str(), p->getCreationTime().c_str(), entry.coreId,
+                    p->getProgramCounter(), p->getTotalCommands());
+            out.push_back(buf);
         }
 
-        // --- 2. Handle "screen -s <process_name>" ---
-        if (trimmedArgs.rfind("-s ", 0) == 0) {
-            std::string procName = trimmedArgs.substr(3); // Extract everything after "-s "
-            
-            // Trim whitespace around the process name
-            size_t nb = procName.find_first_not_of(' ');
-            size_t ne = procName.find_last_not_of(' ');
-            if (nb != std::string::npos) {
-                procName = procName.substr(nb, ne - nb + 1);
-            }
+        out.push_back("");
 
-            // Search for the process in allProcesses_
-            for (const auto& pcb : allProcesses_) {
-                if (pcb->getName() == procName) {
-                    // Cast and assign to activeScreen_ (using std::dynamic_pointer_cast since allProcesses_ holds base/derived pointers)
-                    activeScreen_ = std::dynamic_pointer_cast<ProcessScreen>(pcb);
-                    if (activeScreen_) {
-                        return CommandResult{CommandStatus::SUCCESS, {"Switched to screen: " + procName}};
-                    }
+        // ---- Finished processes ----
+        out.push_back("Finished processes:");
+        for (const auto& p : allProcesses_) {
+            if (p->getState() != ProcessState::TERMINATED) continue;
+            std::snprintf(buf, sizeof(buf), "%-12s (%s)    Finished   %d / %d",
+                    p->getName().c_str(), p->getCreationTime().c_str(),
+                    p->getProgramCounter(), p->getTotalCommands());
+            out.push_back(buf);
+        }
+
+        out.push_back(separator);
+
+        return CommandResult{CommandStatus::SUCCESS, out};
+    });
+
+    interpreter_.registerCommand("screen -s", [this](const std::string& args) {
+        std::string procName = args;
+        
+        // Trim whitespace around the process name
+        size_t nb = procName.find_first_not_of(' ');
+        size_t ne = procName.find_last_not_of(' ');
+        if (nb != std::string::npos) {
+            procName = procName.substr(nb, ne - nb + 1);
+        }
+
+        // Search for the process in allProcesses_
+        for (const auto& pcb : allProcesses_) {
+            if (pcb->getName() == procName) {
+                // Cast and assign to activeScreen_ (using std::dynamic_pointer_cast since allProcesses_ holds base/derived pointers)
+                activeScreen_ = std::dynamic_pointer_cast<ProcessScreen>(pcb);
+                if (activeScreen_) {
+                    return CommandResult{CommandStatus::SUCCESS, {"Switched to screen: " + procName}};
                 }
             }
-
-            return CommandResult{CommandStatus::CMD_ERROR, {"Process not found: " + procName}};
         }
 
-        return CommandResult{CommandStatus::CMD_ERROR, {"Invalid usage. Usage: screen -ls OR screen -s <process_name>"}};
+        return CommandResult{CommandStatus::CMD_ERROR, {"Process not found: " + procName}};
+    });
+
+    interpreter_.registerCommand("screen", [this](const std::string& args) {
+        return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls OR screen -s <process_name>"}};
     });
 
     // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.

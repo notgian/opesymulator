@@ -35,16 +35,34 @@ void CommandInterpreter::registerCommand(const std::string& commandName, Command
 }
 
 CommandResult CommandInterpreter::executeCommand(const std::string& commandLine) {
-    std::string name, args;
-    splitCommand(commandLine, name, args);
-
-    if (name.empty()) {
+    if (commandLine.empty()) {
         return CommandResult{CommandStatus::SUCCESS, {}};
     }
 
-    auto it = handlers_.find(name);
-    if (it != handlers_.end()) {
-        return it->second(args);
+    std::string currentCommand = commandLine;
+
+    // Try matching from the longest possible prefix (by space separation) downwards
+    while (true) {
+        auto it = handlers_.find(currentCommand);
+        if (it != handlers_.end()) {
+            // Found a match! Extract the remaining part as arguments
+            std::string args = "";
+            if (currentCommand.length() < commandLine.length()) {
+                args = commandLine.substr(currentCommand.length());
+                // Strip leading space from arguments if present
+                if (!args.empty() && args[0] == ' ') {
+                    args.erase(0, 1);
+                }
+            }
+            return it->second(args);
+        }
+
+        // Find the last space to shorten the command candidate by one word
+        size_t lastSpace = currentCommand.find_last_of(' ');
+        if (lastSpace == std::string::npos) {
+            break; // No more spaces, tested single-word command and failed
+        }
+        currentCommand = currentCommand.substr(0, lastSpace);
     }
 
     return CommandResult{
@@ -62,4 +80,4 @@ void CommandInterpreter::splitCommand(const std::string& commandLine, std::strin
         name = commandLine.substr(0, spacePos);
         args = commandLine.substr(spacePos + 1);
     }
-}
+}
