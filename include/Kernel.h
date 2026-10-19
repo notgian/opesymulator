@@ -20,11 +20,15 @@ private:
 
     Display mainDisplay_;
     ConsoleScreen consoleScreen_;
+    std::shared_ptr<ConsoleScreen> activeScreen_;
     CommandInterpreter interpreter_;
 
     CPU cpu_;
     Scheduler scheduler_;
 
     std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses_;
+
+    int screenWidth_;
+    int screenHeight_;
     bool running_;
 };

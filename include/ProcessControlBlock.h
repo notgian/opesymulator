@@ -17,6 +17,7 @@ enum class ProcessState {
 class ProcessControlBlock {
 public:
     ProcessControlBlock(int pid, const std::string& name);
+    virtual ~ProcessControlBlock() = default;
 
     void addCommand(std::shared_ptr<ICommand> command);
     void executeCurrentCommand(int coreId);
@@ -46,4 +47,4 @@ private:
 
     std::vector<std::shared_ptr<ICommand>> commandList;
     SymbolTable symbolTable;
-};
+};

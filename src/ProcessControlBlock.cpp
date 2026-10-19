@@ -10,6 +10,9 @@ ProcessControlBlock::ProcessControlBlock(int pid, const std::string& name)
 }
 
 void ProcessControlBlock::addCommand(std::shared_ptr<ICommand> command) {
+    if (command) {
+        command->setParentProcess(this);
+    }
     commandList.push_back(command);
 }
 
@@ -63,4 +66,4 @@ void ProcessControlBlock::setState(ProcessState state) {
 
 void ProcessControlBlock::setProgramCounter(int pc) {
     programCounter_.store(pc);
-}
+}
