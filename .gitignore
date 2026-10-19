@@ -72,4 +72,4 @@ ccls-cache/*
 
 .vscode
 
-process_*.txt
+logs
