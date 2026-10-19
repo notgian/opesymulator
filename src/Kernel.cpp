@@ -133,7 +133,7 @@ void Kernel::run() {
 
     interpreter_.registerCommand("screen", [this](const std::string& args) {
         return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls OR screen -s <process_name>"}};
-    }, "  screen               - lists processes (-ls) or opens a proc screen (-s <process_name>)" );
+    }, "  screen    - lists processes (-ls) or opens a proc screen (-s <process_name>)" );
 
     // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.
     // Everything is queued now (first-come-first-serve order = screen_01 first).

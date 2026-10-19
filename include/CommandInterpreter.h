@@ -22,7 +22,7 @@ struct CommandResult {
 class CommandInterpreter {
     public:
         using CommandHandler = std::function<CommandResult(const std::string& args)>;
-        CommandInterpreter();
+        CommandInterpreter(bool registerDefaults = true);
 
         // Register command with an optional help description line
         void registerCommand(const std::string& commandName, CommandHandler handler, const std::string& helpDescription = "");

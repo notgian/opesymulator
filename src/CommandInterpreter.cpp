@@ -1,28 +1,30 @@
 #include "CommandInterpreter.h"
 
-CommandInterpreter::CommandInterpreter() {
-    // Register default built-in commands with their corresponding help text
-    registerCommand("help", [this](const std::string&) {
-        std::vector<std::string> output = {"Available commands:"};
-        for (const auto& line : helpLines_) {
-            output.push_back(line);
-        }
-        return CommandResult{CommandStatus::SUCCESS, output};
-    }, "  help                 - displays this list");
+CommandInterpreter::CommandInterpreter(bool registerDefaults) {
+    if (registerDefaults) {
+        // Register default built-in commands with their corresponding help text
+        registerCommand("help", [this](const std::string&) {
+            std::vector<std::string> output = {"Available commands:"};
+            for (const auto& line : helpLines_) {
+                output.push_back(line);
+            }
+            return CommandResult{CommandStatus::SUCCESS, output};
+        }, "  help      - displays this list");
 
-    registerCommand("clear", [](const std::string&) {
-        return CommandResult{
-            CommandStatus::CLEAR_HISTORY,
-            {} // Output is empty because history clearing is handled via status
-        };
-    }, "  clear                - clears the console history");
+        registerCommand("clear", [](const std::string&) {
+            return CommandResult{
+                CommandStatus::CLEAR_HISTORY,
+                {} // Output is empty because history clearing is handled via status
+            };
+        }, "  clear     - clears the console history");
 
-    registerCommand("exit", [](const std::string&) {
-        return CommandResult{
-            CommandStatus::EXIT_REQUESTED,
-            {"bye bye"}
-        };
-    }, "  exit                 - terminates the console");
+        registerCommand("exit", [](const std::string&) {
+            return CommandResult{
+                CommandStatus::EXIT_REQUESTED,
+                {"bye bye"}
+            };
+        }, "  exit      - terminates the console");
+    }
 }
 
 void CommandInterpreter::registerCommand(const std::string& commandName, CommandHandler handler, const std::string& helpDescription) {
