@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <mutex>
 
 class ConsoleScreen : public Component {
 public:
@@ -12,9 +13,9 @@ public:
     ConsoleScreen(int row, int col, int width, int height, const std::string& prompt = "Command> ");
 
     // --- Input Events ---
-    void handleKeyPress(char key);
-    void handleBackspace();
-    void handleEnter();
+    virtual void handleKeyPress(char key);
+    virtual void handleBackspace();
+    virtual void handleEnter();
 
     // --- Wiring ---
     void setOnCommandSubmitted(OnCommandSubmitted callback);
@@ -30,10 +31,11 @@ public:
     void setPrompt(const std::string& prompt);
 
 protected:
-    void refreshDisplay();
+    virtual void refreshDisplay();
 
     std::string prompt_;
     std::string inputBuffer_;
     std::vector<std::string> history_;
     OnCommandSubmitted onCommandSubmitted_;
+    mutable std::recursive_mutex screenMutex_;
 };

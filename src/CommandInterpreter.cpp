@@ -1,15 +1,16 @@
 #include "CommandInterpreter.h"
 
 CommandInterpreter::CommandInterpreter(bool registerDefaults) {
+    registerCommand("help", [this](const std::string&) {
+        std::vector<std::string> output = {"Available commands:"};
+        for (const auto& line : helpLines_) {
+            output.push_back(line);
+        }
+        return CommandResult{CommandStatus::SUCCESS, output};
+    }, "  help      - displays this list");
+
     if (registerDefaults) {
         // Register default built-in commands with their corresponding help text
-        registerCommand("help", [this](const std::string&) {
-            std::vector<std::string> output = {"Available commands:"};
-            for (const auto& line : helpLines_) {
-                output.push_back(line);
-            }
-            return CommandResult{CommandStatus::SUCCESS, output};
-        }, "  help      - displays this list");
 
         registerCommand("clear", [](const std::string&) {
             return CommandResult{

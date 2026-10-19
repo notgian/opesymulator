@@ -5,29 +5,51 @@
 
 ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt)
     : ProcessControlBlock(pid, name),
-      ConsoleScreen(row, col, width, height, prompt) {
+      ConsoleScreen(row, col, width, height, prompt),
+      onExitCallback_(nullptr),
+      interpreter_(false) {
+
+    interpreter_.registerCommand("exit", [this](const std::string&) {
+        if (onExitCallback_) {
+            onExitCallback_();
+        }
+        return CommandResult{
+            CommandStatus::EXIT_REQUESTED,
+            {}
+        };
+    }, "  exit      - exits the process screen");
+
     refreshDisplay();
 }
 
 void ProcessScreen::handleKeyPress(char key) {
     if (!std::isprint(static_cast<unsigned char>(key))) return;
-    inputBuffer_.push_back(key); // Uses ConsoleScreen's inputBuffer_
+    std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
+    inputBuffer_.push_back(key);
     refreshDisplay(); 
 }
 
 void ProcessScreen::handleBackspace() {
+    std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
     if (!inputBuffer_.empty()) {
-        inputBuffer_.pop_back(); // Uses ConsoleScreen's inputBuffer_
+        inputBuffer_.pop_back();
         refreshDisplay(); 
     }
 }
 
 void ProcessScreen::handleEnter() {
+    std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
     // Echo typed input into scrollback history
-    history_.push_back(prompt_ + inputBuffer_); // Uses ConsoleScreen's history_ and prompt_
+    history_.push_back(prompt_ + inputBuffer_);
 
     std::string commandText = inputBuffer_;
     inputBuffer_.clear();
+
+    CommandResult result = interpreter_.executeCommand(commandText);
+
+    if (!result.output.empty()) {
+        printLines(result.output);
+    }
 
     if (onCommandSubmitted_) {
         onCommandSubmitted_(commandText);
@@ -36,56 +58,13 @@ void ProcessScreen::handleEnter() {
     refreshDisplay();
 }
 
-void ProcessScreen::setOnCommandSubmitted(OnCommandSubmitted callback) {
-    onCommandSubmitted_ = callback; // Uses ConsoleScreen's callback member
-}
-
-void ProcessScreen::print(const std::string& text) {
-    std::stringstream ss(text);
-    std::string line;
-    bool any = false;
-
-    while (std::getline(ss, line)) {
-        history_.push_back(line); // Appends to ConsoleScreen's shared history vector
-        any = true;
-    }
-    if (!any) {
-        history_.push_back("");
-    }
-
-    refreshDisplay(); 
-}
-
-void ProcessScreen::printLines(const std::vector<std::string>& lines) {
-    for (const std::string& line : lines) {
-        history_.push_back(line); // Appends to ConsoleScreen's shared history vector
-    }
-    refreshDisplay(); 
-}
-
-void ProcessScreen::clearHistory() {
-    history_.clear();
-    refreshDisplay();
-}
-
-const std::string& ProcessScreen::getCurrentInput() const {
-    return inputBuffer_;
-}
-
-const std::string& ProcessScreen::getPrompt() const {
-    return prompt_;
-}
-
-void ProcessScreen::setPrompt(const std::string& prompt) {
-    prompt_ = prompt;
-    refreshDisplay();
-}
-
-const std::vector<std::string>& ProcessScreen::getHistory() const {
-    return history_;
+void ProcessScreen::setOnExit(OnExitCallback callback) {
+    std::lock_guard<std::recursive_mutex> lock(screenMutex_);
+    onExitCallback_ = callback;
 }
 
 void ProcessScreen::refreshDisplay() {
+    std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
     std::vector<std::string> visible;
 
     int rowsForHistory = std::max(0, height_ - 1);

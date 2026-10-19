@@ -61,6 +61,11 @@ void Kernel::run() {
 
         auto pcb = std::make_shared<ProcessScreen>(pid, name, 0, 0, screenWidth_, screenHeight_);
 
+        pcb->setOnExit([this]() {
+            activeScreen_ = nullptr; // Returns control back to consoleScreen_
+            consoleScreen_.print("Returned to main console.");
+        });
+        
         for (int j = 0; j < PRINTS_PER_PROCESS; ++j) {
             pcb->addCommand(std::make_shared<PrintCommand>(pid, "Hello world " + std::to_string(j) + " from " + name + "!"));
         }
