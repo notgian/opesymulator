@@ -52,7 +52,7 @@ void Kernel::run() {
     CreateDirectoryA("logs", NULL);   // logs/screen_01.txt ... logs/screen_10.txt
 #endif
 
-    std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses;
+    allProcesses_.clear();
 
     for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
         int pid = i + 1;
@@ -70,12 +70,12 @@ void Kernel::run() {
         }
 
         // Keep track of all processes for the screen -ls command lookup
-        allProcesses.push_back(pcb);
+        allProcesses_.push_back(pcb);
     }
 
     // --- TEMPORARY COMMAND REGISTRATION ---
     // 'screen -ls' prints the running / finished process lists
-    interpreter_.registerCommand("screen", [this, &allProcesses](const std::string& args) {
+    interpreter_.registerCommand("screen", [this](const std::string& args) {
         // trim whitespace around the argument
         size_t b = args.find_first_not_of(' ');
         size_t e = args.find_last_not_of(' ');
@@ -106,7 +106,7 @@ void Kernel::run() {
 
         // ---- Finished processes ----
         out.push_back("Finished processes:");
-        for (const auto& p : allProcesses) {
+        for (const auto& p : allProcesses_) {
             if (p->getState() != ProcessState::TERMINATED) continue;
             std::snprintf(buf, sizeof(buf), "%-12s (%s)   Finished   %d / %d",
                           p->getName().c_str(), p->getCreationTime().c_str(),
@@ -121,9 +121,10 @@ void Kernel::run() {
 
     // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.
     // Everything is queued now (first-come-first-serve order = screen_01 first).
-    for (const auto& pcb : allProcesses) {
+    for (const auto& pcb : allProcesses_) {
         scheduler_.addProcess(pcb);
     }
+
     cpu_.start();
     scheduler_.start(cpu_);
     // ---------------------------------------------------------------------
@@ -178,4 +179,4 @@ void Kernel::printWelcome() {
 
 void Kernel::clearScreen() {
     std::cout << "\033[2J\033[H";
-}
+}

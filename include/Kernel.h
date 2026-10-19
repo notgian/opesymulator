@@ -25,5 +25,6 @@ private:
     CPU cpu_;
     Scheduler scheduler_;
 
+    std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses_;
     bool running_;
-};
+};
