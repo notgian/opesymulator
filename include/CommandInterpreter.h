@@ -4,6 +4,7 @@
 #include <functional>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 enum class CommandStatus {
     SUCCESS,
@@ -23,11 +24,13 @@ class CommandInterpreter {
         using CommandHandler = std::function<CommandResult(const std::string& args)>;
         CommandInterpreter();
 
-        void registerCommand(const std::string& commandName, CommandHandler handler);
+        // Register command with an optional help description line
+        void registerCommand(const std::string& commandName, CommandHandler handler, const std::string& helpDescription = "");
 
         CommandResult executeCommand(const std::string& commandLine);
 
     private:
         void splitCommand(const std::string& commandLine, std::string& name, std::string& args);
         std::unordered_map<std::string, CommandHandler> handlers_;
-};
+        std::vector<std::string> helpLines_; // Dynamically tracks help descriptions
+};
