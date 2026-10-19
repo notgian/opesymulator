@@ -5,29 +5,26 @@
 
 ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt)
     : ProcessControlBlock(pid, name),
-      ConsoleScreen(row, col, width, height, prompt),
-      prompt_(prompt),
-      inputBuffer_(""),
-      onCommandSubmitted_(nullptr) {
+      ConsoleScreen(row, col, width, height, prompt) {
     refreshDisplay();
 }
 
 void ProcessScreen::handleKeyPress(char key) {
     if (!std::isprint(static_cast<unsigned char>(key))) return;
-    inputBuffer_.push_back(key);
-    refreshDisplay(); // Updates the bottom input line immediately
+    inputBuffer_.push_back(key); // Uses ConsoleScreen's inputBuffer_
+    refreshDisplay(); 
 }
 
 void ProcessScreen::handleBackspace() {
     if (!inputBuffer_.empty()) {
-        inputBuffer_.pop_back();
-        refreshDisplay(); // Refreshes the bottom input line
+        inputBuffer_.pop_back(); // Uses ConsoleScreen's inputBuffer_
+        refreshDisplay(); 
     }
 }
 
 void ProcessScreen::handleEnter() {
     // Echo typed input into scrollback history
-    history_.push_back(prompt_ + inputBuffer_);
+    history_.push_back(prompt_ + inputBuffer_); // Uses ConsoleScreen's history_ and prompt_
 
     std::string commandText = inputBuffer_;
     inputBuffer_.clear();
@@ -40,7 +37,7 @@ void ProcessScreen::handleEnter() {
 }
 
 void ProcessScreen::setOnCommandSubmitted(OnCommandSubmitted callback) {
-    onCommandSubmitted_ = callback;
+    onCommandSubmitted_ = callback; // Uses ConsoleScreen's callback member
 }
 
 void ProcessScreen::print(const std::string& text) {
@@ -49,21 +46,21 @@ void ProcessScreen::print(const std::string& text) {
     bool any = false;
 
     while (std::getline(ss, line)) {
-        history_.push_back(line);
+        history_.push_back(line); // Appends to ConsoleScreen's shared history vector
         any = true;
     }
     if (!any) {
         history_.push_back("");
     }
 
-    refreshDisplay(); // Re-renders history while keeping the bottom input line intact
+    refreshDisplay(); 
 }
 
 void ProcessScreen::printLines(const std::vector<std::string>& lines) {
     for (const std::string& line : lines) {
-        history_.push_back(line);
+        history_.push_back(line); // Appends to ConsoleScreen's shared history vector
     }
-    refreshDisplay(); // Re-renders history while keeping the bottom input line intact
+    refreshDisplay(); 
 }
 
 void ProcessScreen::clearHistory() {

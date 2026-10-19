@@ -31,9 +31,4 @@ public:
 
 private:
     void refreshDisplay();
-
-    std::string prompt_;
-    std::string inputBuffer_;
-    std::vector<std::string> history_; // Holds the scrollback contents of the screen
-    OnCommandSubmitted onCommandSubmitted_;
 };

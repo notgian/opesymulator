@@ -46,17 +46,12 @@ Kernel::Kernel(int screenWidth, int screenHeight)
 
 void Kernel::run() {
     clearScreen();
+    allProcesses_.clear();
 
     // ---------------------------------------------------------------------
     // --- TEST CASE SETUP: 10 processes x 100 print commands at startup ---
     // ---------------------------------------------------------------------
-    // TODO: remove for actual emulator
 
-#if ENABLE_PRINT_LOGS
-    CreateDirectoryA("logs", NULL);   // logs/screen_01.txt ... logs/screen_10.txt
-#endif
-
-    allProcesses_.clear();
 
     for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
         int pid = i + 1;
@@ -67,7 +62,7 @@ void Kernel::run() {
         auto pcb = std::make_shared<ProcessScreen>(pid, name, 0, 0, screenWidth_, screenHeight_);
 
         for (int j = 0; j < PRINTS_PER_PROCESS; ++j) {
-            pcb->addCommand(std::make_shared<PrintCommand>(pid, "Hello world from " + name + "!"));
+            pcb->addCommand(std::make_shared<PrintCommand>(pid, "Hello world " + std::to_string(j) + " from " + name + "!"));
         }
 
         // Keep track of all processes for the screen -ls command lookup

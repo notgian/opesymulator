@@ -29,11 +29,11 @@ public:
     const std::string& getPrompt() const;
     void setPrompt(const std::string& prompt);
 
-private:
+protected:
     void refreshDisplay();
 
     std::string prompt_;
     std::string inputBuffer_;
     std::vector<std::string> history_;
     OnCommandSubmitted onCommandSubmitted_;
-};
+};
