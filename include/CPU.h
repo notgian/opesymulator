@@ -6,7 +6,10 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <cstdint>
 #include "ProcessControlBlock.h"
+
+constexpr int CYCLE_DURATION_MS = 100;
 
 struct CPUCore {
     int coreId;
@@ -25,7 +28,7 @@ struct RunningEntry {
 // (FCFS = non-preemptive), then releases the core.
 class CPU {
 public:
-    CPU(int numCores = 4);
+    CPU(int numCores, std::uint64_t execDelayCycles);
     ~CPU();
 
     void start();   // spawn one worker thread per core
@@ -45,6 +48,8 @@ private:
 
     std::vector<CPUCore> cores_;
     std::vector<std::thread> workers_;
+
+    std::uint64_t execDelayCycles_;
 
     mutable std::mutex mutex_;
     std::condition_variable cv_;

@@ -2,7 +2,8 @@
 #include "Config.h"
 #include <chrono>
 
-CPU::CPU(int numCores) {
+CPU::CPU(int numCores, std::uint64_t execDelayCycles)
+    : execDelayCycles_(execDelayCycles) {
     for (int i = 0; i < numCores; ++i) {
         cores_.push_back({i, false, nullptr});
     }
@@ -69,14 +70,21 @@ void CPU::workerLoop(int coreId) {
             pcb = cores_[coreId].currentProcess;
         }
 
+        std::uint64_t cyclesSinceLastExecution = execDelayCycles_;
+
         // Run the process until it finishes (non-preemptive, as FCFS requires)
         while (!stopping_ && !pcb->hasFinished()) {
-            pcb->executeCurrentCommand(coreId);
-            pcb->moveToNextLine();
+            if (cyclesSinceLastExecution < execDelayCycles_) {
+                ++cyclesSinceLastExecution;
+            } else {
+                pcb->executeCurrentCommand(coreId);
+                pcb->moveToNextLine();
+                cyclesSinceLastExecution = 0;
 
-            if (!pcb->hasFinished()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(INSTRUCTION_DELAY_MS));
+                if (pcb->hasFinished()) break;
             }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(CYCLE_DURATION_MS));
         }
         if (stopping_) return;
 

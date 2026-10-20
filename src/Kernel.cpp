@@ -44,7 +44,7 @@ Kernel::Kernel(int screenWidth, int screenHeight)
 
 void Kernel::onInitialization() {
     // Initialize the cpu and scheduler
-    cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu());
+    cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu(), emulatorConfig_.getDelaysPerExec());
     scheduler_ = std::make_unique<Scheduler>(emulatorConfig_.getScheduler(), emulatorConfig_.getQuantumCycles());
 
     // Register commands which only become available on initialization
@@ -130,6 +130,9 @@ void Kernel::run() {
     // ---------------------------------------------------------------------
     // --- TEST CASE SETUP: 10 processes x 100 print commands at startup ---
     // ---------------------------------------------------------------------
+
+    int NUM_TEST_PROCESSES  = 10;   // test case: 10 processes
+    int PRINTS_PER_PROCESS  = 100;  // test case: 100 print commands each
 
     for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
         int pid = i + 1;
