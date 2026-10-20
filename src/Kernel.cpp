@@ -11,8 +11,6 @@
 Kernel::Kernel(int screenWidth, int screenHeight)
     : mainDisplay_(screenWidth, screenHeight),
       consoleScreen_(0, 0, screenWidth, screenHeight, "Command> "),
-      cpu_(NUM_CORES),
-      scheduler_(),
       screenWidth_(screenWidth),
       screenHeight_(screenHeight),
       activeScreen_(nullptr),
@@ -45,6 +43,10 @@ Kernel::Kernel(int screenWidth, int screenHeight)
 }
 
 void Kernel::onInitialization() {
+    // Initialize the cpu and scheduler
+    cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu());
+    scheduler_ = std::make_unique<Scheduler>(emulatorConfig_.getScheduler(), emulatorConfig_.getQuantumCycles());
+
     // Register commands which only become available on initialization
 
     // 'screen -ls' prints the running / finished process lists
@@ -57,7 +59,7 @@ void Kernel::onInitialization() {
 
         // ---- Running processes (one per busy core) ----
         out.push_back("Running processes:");
-        std::vector<RunningEntry> running = cpu_.getRunningProcesses();
+        std::vector<RunningEntry> running = cpu_->getRunningProcesses();
         for (const auto& entry : running) {
             const auto& p = entry.process;
             std::snprintf(buf, sizeof(buf), "%-12s (%s)    Core: %d   %d / %d",
@@ -114,11 +116,11 @@ void Kernel::onInitialization() {
     // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.
     // Everything is queued now (first-come-first-serve order = screen_01 first).
     for (const auto& pcb : allProcesses_) {
-        scheduler_.addProcess(pcb);
+        scheduler_->addProcess(pcb);
     }
 
-    cpu_.start();
-    scheduler_.start(cpu_);
+    cpu_->start();
+    scheduler_->start(*cpu_);
 }
 
 void Kernel::run() {
@@ -191,7 +193,10 @@ void Kernel::run() {
 
     // Main (UI) thread: keyboard input + rendering only
     while (running_) {
-        ConsoleScreen* currentScreen = activeScreen_ ? static_cast<ConsoleScreen*>(activeScreen_.get()) : static_cast<ConsoleScreen*>(&consoleScreen_);
+        std::shared_ptr<ConsoleScreen> active = activeScreen_;
+        ConsoleScreen* currentScreen = active 
+            ? static_cast<ConsoleScreen*>(active.get())
+            : static_cast<ConsoleScreen*>(&consoleScreen_);
 
         if (_kbhit()) {
             int intercepted = _getch();
@@ -222,8 +227,8 @@ void Kernel::run() {
     }
 
     // Shut the scheduler thread and the core worker threads down cleanly
-    scheduler_.stop();
-    cpu_.stop();
+    if (scheduler_) scheduler_->stop();
+    if (cpu_) cpu_->stop();
 }
 
 void Kernel::printWelcome() {

@@ -5,16 +5,18 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <cstdint>
 #include "ProcessControlBlock.h"
 #include "CPU.h"
 
 enum class SchedulerMode {
-    FCFS
+    FCFS,
+    RR
 };
 
 class Scheduler {
 public:
-    Scheduler();
+    Scheduler(SchedulerMode schedulerMode, std::uint64_t quantumCycles);
     ~Scheduler();
 
     void setMode(SchedulerMode mode);
@@ -38,6 +40,9 @@ private:
     std::thread thread_;
     std::atomic<bool> stopping_{false};
 
+    std::uint64_t quantumCycles_;
+
     // Specific algorithm implementations
     void FCFCSchedule(CPU& cpu);
+    void RRSchedule(CPU& cpu);
 };

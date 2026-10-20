@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <sstream>
+#include "Scheduler.h"
 
 namespace {
 
@@ -136,7 +137,9 @@ ConfigLoadStatus Config::load(const std::string& path) {
 
     // Everything is valid: commit.
     numCpu_ = static_cast<std::uint32_t>(numCpu);
-    scheduler_ = scheduler;
+    scheduler_ = scheduler == "fcfs" 
+        ? SchedulerMode::FCFS
+        : SchedulerMode::RR;
     quantumCycles_ = quantum;
     batchProcessFreq_ = batchFreq;
     minIns_ = minIns;

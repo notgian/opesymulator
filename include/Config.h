@@ -24,6 +24,7 @@ constexpr int INSTRUCTION_DELAY_MS = 100;
  
 #include <cstdint>
 #include <string>
+#include "Scheduler.h"
  
 // Outcome of Config::load().
 enum class ConfigLoadStatus {
@@ -44,7 +45,7 @@ public:
  
     // Getters (no setters: values can only change through load()).
     std::uint32_t getNumCpu() const { return numCpu_; }
-    const std::string& getScheduler() const { return scheduler_; }
+    SchedulerMode getScheduler() const { return scheduler_; }
     std::uint64_t getQuantumCycles() const { return quantumCycles_; }
     std::uint64_t getBatchProcessFreq() const { return batchProcessFreq_; }
     std::uint64_t getMinIns() const { return minIns_; }
@@ -55,7 +56,7 @@ private:
     // Initialized to the default parameters from the specification.
     // Ranges go up to 2^32 inclusive, so 64-bit storage is used.
     std::uint8_t numCpu_ = 4;
-    std::string scheduler_ = "rr";
+    SchedulerMode scheduler_ = SchedulerMode::RR;
     std::uint64_t quantumCycles_ = 5;
     std::uint64_t batchProcessFreq_ = 1;
     std::uint64_t minIns_ = 1000;

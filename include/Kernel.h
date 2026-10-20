@@ -6,6 +6,7 @@
 #include "CPU.h"
 #include "Scheduler.h"
 #include "Config.h"
+#include <memory>
 
 
 class Kernel {
@@ -24,8 +25,8 @@ private:
     std::shared_ptr<ConsoleScreen> activeScreen_;
     CommandInterpreter interpreter_;
 
-    CPU cpu_;
-    Scheduler scheduler_;
+    std::unique_ptr<CPU> cpu_;
+    std::unique_ptr<Scheduler> scheduler_;
 
     std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses_;
 

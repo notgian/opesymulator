@@ -1,7 +1,7 @@
 #include "Scheduler.h"
 #include <chrono>
 
-Scheduler::Scheduler() : currentMode_(SchedulerMode::FCFS) {}
+Scheduler::Scheduler(SchedulerMode schedulerMode, std::uint64_t quantumCycles) : currentMode_(schedulerMode), quantumCycles_(quantumCycles) {}
 
 Scheduler::~Scheduler() {
     stop();
@@ -43,6 +43,9 @@ void Scheduler::update(CPU& cpu) {
         case SchedulerMode::FCFS:
             FCFCSchedule(cpu);
             break;
+        case SchedulerMode::RR:
+            RRSchedule(cpu);
+            break;
         default:
             break;
     }
@@ -63,4 +66,9 @@ void Scheduler::FCFCSchedule(CPU& cpu) {
         }
         cpu.assignProcessToCore(i, nextProcess);
     }
+}
+
+// TODO: implement RR scheduler
+void Scheduler::RRSchedule(CPU& cpu) {
+
 }
