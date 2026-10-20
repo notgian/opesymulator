@@ -26,17 +26,29 @@
             },
             "detail": "Custom cppbuild configuration."
         },
-
-        { 
-            "label": "Build and Run OS Emulator", 
-            "type": "shell", 
-            "command": "${workspaceFolder}/main.exe", 
-            "options": { 
-                "cwd": "${workspaceFolder}" 
-            }, 
-            "dependsOn": "Build OS Emulator", 
-            "dependsOrder": "sequence", 
-            "problemMatcher": [] 
+        {
+            "label": "Build OS Emulator (build.bat)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\build.bat",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "Builds using build.bat, which auto-detects the g++ install."
+        },
+        {
+            "label": "Build and Run OS Emulator",
+            "type": "shell",
+            "command": "${workspaceFolder}/main.exe",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "Build OS Emulator (build.bat)",
+            "dependsOrder": "sequence",
+            "problemMatcher": []
         }
     ]
 }

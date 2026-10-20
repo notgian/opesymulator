@@ -44,73 +44,8 @@ Kernel::Kernel(int screenWidth, int screenHeight)
     });
 }
 
-void Kernel::run() {
-    clearScreen();
-    allProcesses_.clear();
-
-    // ---------------------------------------------------------------------
-    // --- TEST CASE SETUP: 10 processes x 100 print commands at startup ---
-    // ---------------------------------------------------------------------
-
-
-    for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
-        int pid = i + 1;
-        char nameBuf[32];
-        std::snprintf(nameBuf, sizeof(nameBuf), "screen_%02d", pid);
-        std::string name = nameBuf;
-
-        auto pcb = std::make_shared<ProcessScreen>(pid, name, 0, 0, screenWidth_, screenHeight_);
-
-        pcb->setOnExit([this]() {
-            activeScreen_ = nullptr; // Returns control back to consoleScreen_
-            consoleScreen_.print("Returned to main console.");
-        });
-        
-        for (int j = 0; j < PRINTS_PER_PROCESS; ++j) {
-            pcb->addCommand(std::make_shared<PrintCommand>(pid, "Hello world " + std::to_string(j) + " from " + name + "!"));
-        }
-
-        // Keep track of all processes for the screen -ls command lookup
-        allProcesses_.push_back(pcb);
-    }
-
-    // --- COMMAND REGISTRATION ---
-
-    // Initialize command
-
-    interpreter_.registerCommand("initialize", [this](const std::string& args) {
-        std::string configPath = "config.txt";
-        std::vector<std::string> message;
-        CommandStatus returnStatus;
-
-        ConfigLoadStatus configStatus = emulatorConfig_.load(configPath);
-
-        switch (configStatus) {
-            case ConfigLoadStatus::Reinitialization:
-                message.push_back("Initialization Error: config already initialized.");
-                returnStatus = CommandStatus::CMD_ERROR;
-                break;
-            case ConfigLoadStatus::FileNotFound:
-                message.push_back("Initialization Error: config " + configPath + " not found.");
-                returnStatus = CommandStatus::CMD_ERROR;
-                break;
-            case ConfigLoadStatus::InvalidValue:
-                message.push_back("Initialization Error: Attribute(s) with invalid value(s)");
-                returnStatus = CommandStatus::CMD_ERROR;
-                break;
-            case ConfigLoadStatus::MissingAttribute:
-                message.push_back("Initialization Error: missing attribute(s)");
-                returnStatus = CommandStatus::CMD_ERROR;
-                break;
-            case ConfigLoadStatus::Success:
-                message.push_back("Emulator successfully initialized.");
-                returnStatus = CommandStatus::SUCCESS;
-                break;
-
-        }
-
-        return CommandResult{returnStatus, message};
-    }, "  initialize     - initializes the emulator configuration" );
+void Kernel::onInitialization() {
+    // Register commands which only become available on initialization
 
     // 'screen -ls' prints the running / finished process lists
     interpreter_.registerCommand("screen -ls", [this](const std::string& args) {
@@ -184,6 +119,74 @@ void Kernel::run() {
 
     cpu_.start();
     scheduler_.start(cpu_);
+}
+
+void Kernel::run() {
+    clearScreen();
+    allProcesses_.clear();
+
+    // ---------------------------------------------------------------------
+    // --- TEST CASE SETUP: 10 processes x 100 print commands at startup ---
+    // ---------------------------------------------------------------------
+
+    for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
+        int pid = i + 1;
+        char nameBuf[32];
+        std::snprintf(nameBuf, sizeof(nameBuf), "screen_%02d", pid);
+        std::string name = nameBuf;
+
+        auto pcb = std::make_shared<ProcessScreen>(pid, name, 0, 0, screenWidth_, screenHeight_);
+
+        pcb->setOnExit([this]() {
+            activeScreen_ = nullptr; // Returns control back to consoleScreen_
+            consoleScreen_.print("Returned to main console.");
+        });
+        
+        for (int j = 0; j < PRINTS_PER_PROCESS; ++j) {
+            pcb->addCommand(std::make_shared<PrintCommand>(pid, "Hello world " + std::to_string(j) + " from " + name + "!"));
+        }
+
+        // Keep track of all processes for the screen -ls command lookup
+        allProcesses_.push_back(pcb);
+    }
+
+    // Register Initialize command
+
+    interpreter_.registerCommand("initialize", [this](const std::string& args) {
+        std::string configPath = "C:\\Users\\notgian\\Documents\\School Files\\opesymulator\\config.txt";
+        std::vector<std::string> message;
+        bool initSuccess = false;
+
+        ConfigLoadStatus configStatus = emulatorConfig_.load(configPath);
+
+        switch (configStatus) {
+            case ConfigLoadStatus::Reinitialization:
+                message.push_back("Initialization Error: config already initialized.");
+                break;
+            case ConfigLoadStatus::FileNotFound:
+                message.push_back("Initialization Error: config " + configPath + " not found.");
+                break;
+            case ConfigLoadStatus::InvalidValue:
+                message.push_back("Initialization Error: Attribute(s) with invalid value(s)");
+                break;
+            case ConfigLoadStatus::MissingAttribute:
+                message.push_back("Initialization Error: missing attribute(s)");
+                break;
+            case ConfigLoadStatus::Success:
+                message.push_back("Emulator successfully initialized.");
+                initSuccess = true;
+                break;
+
+        }
+
+        if (!initSuccess) {
+            return CommandResult{CommandStatus::CMD_ERROR, message};
+        }
+
+        onInitialization();
+        return CommandResult{CommandStatus::SUCCESS, message};
+    }, "  initialize     - initializes the emulator configuration" );
+
     // ---------------------------------------------------------------------
 
     // Main (UI) thread: keyboard input + rendering only

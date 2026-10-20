@@ -30,6 +30,7 @@ private:
     std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses_;
 
     Config emulatorConfig_;
+    void onInitialization();
     
     int screenWidth_;
     int screenHeight_;

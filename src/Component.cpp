@@ -26,6 +26,7 @@ int Component::getHeight() const {
 }
 
 std::vector<std::string> Component::getText() const {
+    std::lock_guard<std::mutex> lock(textMutex_);
     return text_;
 }
 
@@ -40,6 +41,7 @@ void Component::setY(int y) {
 }
 
 void Component::setWidth(int width) {
+    std::lock_guard<std::mutex> lock(textMutex_);
     if (width == width_) return;
 
     width_ = width;
@@ -50,6 +52,7 @@ void Component::setWidth(int width) {
 }
 
 void Component::setHeight(int height) {
+    std::lock_guard<std::mutex> lock(textMutex_);
     if (height == height_) return;
 
     height_ = height;
@@ -64,16 +67,17 @@ void Component::setHeight(int height) {
 }
 
 void Component::setText(const std::vector<std::string>& text) {
+    std::lock_guard<std::mutex> lock(textMutex_);
     text_ = text;
 }
 
 // Convenience overload: splits string by newline character ('\n')
 void Component::setText(const std::string& text) {
-    text_.clear();
+    std::vector<std::string> lines;
     std::stringstream ss(text);
     std::string line;
+    while (std::getline(ss, line)) lines.push_back(line);
 
-    while (std::getline(ss, line)) {
-        text_.push_back(line);
-    }
+    std::lock_guard<std::mutex> lock(textMutex_);
+    text_ = std::move(lines);
 }

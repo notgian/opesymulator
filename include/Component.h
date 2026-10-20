@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 
 class Component {
     public:
@@ -28,5 +29,6 @@ class Component {
         int height_;
 
         std::vector<std::string> text_ ;
+        mutable std::mutex textMutex_;
 };
 

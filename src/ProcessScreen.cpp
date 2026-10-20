@@ -17,7 +17,7 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
             CommandStatus::EXIT_REQUESTED,
             {}
         };
-    }, "  exit      - exits the process screen");
+    }, "  exit           - exits the process screen");
 
     refreshDisplay();
 }
