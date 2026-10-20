@@ -1,5 +1,4 @@
 #include "PrintCommand.h"
-#include "Config.h"
 #include "TimeUtil.h"
 #include "ProcessScreen.h"
 #include <fstream>

@@ -76,6 +76,42 @@ void Kernel::run() {
 
     // --- COMMAND REGISTRATION ---
 
+    // Initialize command
+
+    interpreter_.registerCommand("initialize", [this](const std::string& args) {
+        std::string configPath = "config.txt";
+        std::vector<std::string> message;
+        CommandStatus returnStatus;
+
+        ConfigLoadStatus configStatus = emulatorConfig_.load(configPath);
+
+        switch (configStatus) {
+            case ConfigLoadStatus::Reinitialization:
+                message.push_back("Initialization Error: config already initialized.");
+                returnStatus = CommandStatus::CMD_ERROR;
+                break;
+            case ConfigLoadStatus::FileNotFound:
+                message.push_back("Initialization Error: config " + configPath + " not found.");
+                returnStatus = CommandStatus::CMD_ERROR;
+                break;
+            case ConfigLoadStatus::InvalidValue:
+                message.push_back("Initialization Error: Attribute(s) with invalid value(s)");
+                returnStatus = CommandStatus::CMD_ERROR;
+                break;
+            case ConfigLoadStatus::MissingAttribute:
+                message.push_back("Initialization Error: missing attribute(s)");
+                returnStatus = CommandStatus::CMD_ERROR;
+                break;
+            case ConfigLoadStatus::Success:
+                message.push_back("Emulator successfully initialized.");
+                returnStatus = CommandStatus::SUCCESS;
+                break;
+
+        }
+
+        return CommandResult{returnStatus, message};
+    }, "  initialize     - initializes the emulator configuration" );
+
     // 'screen -ls' prints the running / finished process lists
     interpreter_.registerCommand("screen -ls", [this](const std::string& args) {
         const std::string separator(38, '-');
@@ -138,7 +174,7 @@ void Kernel::run() {
 
     interpreter_.registerCommand("screen", [this](const std::string& args) {
         return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls OR screen -s <process_name>"}};
-    }, "  screen    - lists processes (-ls) or opens a proc screen (-s <process_name>)" );
+    }, "  screen         - lists processes (-ls) or opens a proc screen (-s <process_name>)" );
 
     // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.
     // Everything is queued now (first-come-first-serve order = screen_01 first).

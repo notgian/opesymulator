@@ -7,7 +7,7 @@ CommandInterpreter::CommandInterpreter(bool registerDefaults) {
             output.push_back(line);
         }
         return CommandResult{CommandStatus::SUCCESS, output};
-    }, "  help      - displays this list");
+    }, "  help           - displays this list");
 
     if (registerDefaults) {
         // Register default built-in commands with their corresponding help text
@@ -17,14 +17,14 @@ CommandInterpreter::CommandInterpreter(bool registerDefaults) {
                 CommandStatus::CLEAR_HISTORY,
                 {} // Output is empty because history clearing is handled via status
             };
-        }, "  clear     - clears the console history");
+        }, "  clear          - clears the console history");
 
         registerCommand("exit", [](const std::string&) {
             return CommandResult{
                 CommandStatus::EXIT_REQUESTED,
                 {"bye bye"}
             };
-        }, "  exit      - terminates the console");
+        }, "  exit           - terminates the console");
     }
 }
 

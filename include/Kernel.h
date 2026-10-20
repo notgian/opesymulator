@@ -5,6 +5,7 @@
 #include "CommandInterpreter.h"
 #include "CPU.h"
 #include "Scheduler.h"
+#include "Config.h"
 
 
 class Kernel {
@@ -28,6 +29,8 @@ private:
 
     std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses_;
 
+    Config emulatorConfig_;
+    
     int screenWidth_;
     int screenHeight_;
     bool running_;
