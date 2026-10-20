@@ -25,10 +25,14 @@ Entry class file: main.cpp
 
 2. Click the dropdown on the run button and select `Run Code`. This will invoke the code runner configured in the `.vscode/settings.json` file. For subsequent runs in the same session, you should be able to just click the button without having to open the dropdown anymore. If you close and re-open vscode, you will have to do the dropdown thing again.
 
-
+<img width="248" height="118" alt="image" src="https://github.com/user-attachments/assets/e4614184-e1f0-41e9-9fd5-3018ce9d714e" />
 <br /> <br />
 
 3. Program should now build and then run. You will know that it worked properly if the command invokes the build.bat file.
+
+<img width="1617" height="625" alt="image" src="https://github.com/user-attachments/assets/423c95b6-4908-4640-b186-eb2ceb52d49d" />
+
+<img width="1612" height="962" alt="image" src="https://github.com/user-attachments/assets/f66e6b8e-0a7d-452b-adf7-b345c5b63464" />
 
 
 ## Manually Setting Your GPP Path
@@ -50,6 +54,7 @@ Application     g++.exe                                            0.0.0.0    C:
 
 If you do have gpp installed, then you will see where your g++ is located. Copy that path file and just add it to the `build.bat file`. You will see a list of g++ paths. Just add it there.
 
+<img width="1601" height="791" alt="image" src="https://github.com/user-attachments/assets/14685d9f-0d1b-4e6d-a9a2-a13e46d2c4af" />
 
 ## Manual Build
 
