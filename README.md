@@ -12,9 +12,10 @@ Entry class file: main.cpp
 # Running and Building with VSCode
 
 **Pre Requisites:**
-1. Install the Microsoft C/C++ Extension.
-2. Install a modern version of mingw i.e. [winlibs](https://winlibs.com/).
-3. The custom `tasks.json` file is present in the .vscode folder (if you cloned this repository correctly, it should be there).
+1. Install the [Microsoft C/C++ Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools).
+2. Install the [Code Runner Extension by Jun Han](https://marketplace.visualstudio.com/items?itemName=formulahendry.code-runner).
+3. Install a modern version of mingw i.e. [winlibs](https://winlibs.com/) or just have gpp installed. *NOTE: If you're using a less common gpp install, see [Manually Setting Your GPP Path](#manually-setting-your-gpp-path)*
+4. The custom `settings.json` file is present in the .vscode folder (if you cloned this repository correctly, it should be there).
 
 ## How To Run
 1. Open any cpp file. This will cause the run button to appear.
@@ -22,25 +23,39 @@ Entry class file: main.cpp
 <img width="1622" height="544" alt="image" src="https://github.com/user-attachments/assets/24a0fc6d-4f92-4828-846b-24f39189d4e8" />
 <br /> <br />
 
-2. Click the dropdown on the run button and select `Run C/C++ File`.
+2. Click the dropdown on the run button and select `Run Code`. This will invoke the code runner configured in the `.vscode/settings.json` file. For subsequent runs in the same session, you should be able to just click the button without having to open the dropdown anymore. If you close and re-open vscode, you will have to do the dropdown thing again.
 
-<img width="270" height="103" alt="image" src="https://github.com/user-attachments/assets/80cd62aa-3c6b-40e4-a029-1ffb0fc815ba" />
+
 <br /> <br />
 
-3. If prompted which build configuration to use, select the one with the label **"Build OS Emulator."**
+3. Program should now build and then run. You will know that it worked properly if the command invokes the build.bat file.
 
-<img width="1618" height="271" alt="image" src="https://github.com/user-attachments/assets/21351ff1-3603-41ba-aeb0-63123b3b7fbb" />
-<br /> <br />
 
-4. Program should now build and then run.
+## Manually Setting Your GPP Path
 
-*NOTE: There was an issue that existed, causing the program to run within the `src` directory. As of last testing it, it now runs from the workspace root. I cannot say what caused this behavior to change, but if it does run from the src directory, ggs idk what to do about that...*
+On the off chance you are using a gpp installation that the build script cannot find, you might need to do some extra setup.
+
+First, open up a powershell window and run the following command:
+
+```powershell
+Get-Command g++
+
+# Output might be something like this
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Application     g++.exe                                            0.0.0.0    C:\mingw64\bin\g++.exe
+
+```
+
+If you do have gpp installed, then you will see where your g++ is located. Copy that path file and just add it to the `build.bat file`. You will see a list of g++ paths. Just add it there.
+
 
 ## Manual Build
 
-OR Manual building and running with g++ build script. Note that this script may not have 100% parity with the build in the `tasks.json` file if ever we forget to upload it.
+OR Manual building and running with g++ build script.
 
-```bash
+```powershell
 .\build.bat
 .\main.exe
 ```
