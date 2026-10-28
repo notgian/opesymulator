@@ -15,7 +15,7 @@ public:
     ICommand(int pid, ICommandType CommandType);
     virtual ~ICommand() = default;
     
-    virtual void execute(SymbolTable& symbolTable) = 0;
+    virtual int execute(SymbolTable& symbolTable) = 0;
 
     ICommandType getCommandType() const;
     ProcessControlBlock* getParentProcess() const;
