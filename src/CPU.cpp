@@ -77,8 +77,8 @@ void CPU::workerLoop(int coreId) {
             if (cyclesSinceLastExecution < execDelayCycles_) {
                 ++cyclesSinceLastExecution;
             } else {
-                pcb->executeCurrentCommand(coreId);
-                pcb->moveToNextLine();
+                int jump = pcb->executeCurrentCommand(coreId);
+                pcb->jumpLines(jump);
                 cyclesSinceLastExecution = 0;
 
                 if (pcb->hasFinished()) break;

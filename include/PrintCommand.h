@@ -9,7 +9,7 @@ class PrintCommand : public ICommand {
 public:
     PrintCommand(int pid, const std::string& message);
 
-    void execute(SymbolTable& symbolTable) override;
+    int execute(SymbolTable& symbolTable) override;
 
 private:
     std::string message_;

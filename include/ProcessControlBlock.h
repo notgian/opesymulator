@@ -20,8 +20,8 @@ public:
     virtual ~ProcessControlBlock() = default;
 
     void addCommand(std::shared_ptr<ICommand> command);
-    void executeCurrentCommand(int coreId);
-    void moveToNextLine();
+    int executeCurrentCommand(int coreId);
+    void jumpLines(int jump);
     bool hasFinished() const;
 
     // Accessors
