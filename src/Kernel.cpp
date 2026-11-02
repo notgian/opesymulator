@@ -155,30 +155,7 @@ void Kernel::run() {
     clearScreen();
     allProcesses_.clear();
 
-    // ---------------------------------------------------------------------
-    // --- TEST CASE SETUP: 10 processes x 100 print commands at startup ---
-    // ---------------------------------------------------------------------
-
-    int NUM_TEST_PROCESSES  = 10;   // test case: 10 processes
-    int PRINTS_PER_PROCESS  = 100;  // test case: 100 print commands each
-
-    for (int i = 0; i < NUM_TEST_PROCESSES; ++i) {
-        char nameBuf[32];
-        std::snprintf(nameBuf, sizeof(nameBuf), "screen_%02d", i + 1);
-        std::string name = nameBuf;
-
-        auto pcb = createProcess(name);
-
-        for (int j = 0; j < PRINTS_PER_PROCESS; ++j) {
-            pcb->addCommand(std::make_shared<PrintCommand>(pcb->getPID(), "Hello world " + std::to_string(j) + " from " + name + "!"));
-        }
-
-        // Keep track of all processes for the screen -ls command lookup
-        registerProcess(pcb);
-    }
-
     // Register Initialize command
-
     interpreter_.registerCommand("initialize", [this](const std::string& args) {
         // Relative to the working directory (the project folder when run through VSCode or build.bat)
         std::string configPath = Config::DEFAULT_PATH;

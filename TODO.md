@@ -6,10 +6,11 @@ This file will serve as a simple todo listfor what we still need implemented. Ti
 - [x] RR Scheduler function [Sky]
 - [ ] Main menu console commands
   - [ ] scheduler-start 
+    - [ ] update generateInstructions function to properly use all the other instructions.
   - [ ] scheduler-stop
   - [x] report-util [MJ]
   - [x] screen (update to match specs** -- a bit of conflicting info about what -s should do, so idk)[^1] [MJ] (went with -s creates, -r attaches)
-- [x] process screen commands
+- [x] process screen commands [Gian]
   - [x] process-smi + changing the behavior of the print command**
 
 
