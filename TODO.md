@@ -14,4 +14,4 @@ This file will serve as a simple todo listfor what we still need implemented. Ti
 
 
 
-[^1] The `screen -s` command is mentioned multiple times in the specs to do these two functions: to "open" the process screen up or basically attach the process screen (see specs page 3) AND to create a new process (see specs page 2). BOTH follow the exact same format, however another command `screen -r` is mentioned that does the screen attaching. Just in my opinion (Gian's opinion), `screen -s` should probably be used for creating the processes, and `screen -r` for attaching to a process screen.
+[^1]: The `screen -s` command is mentioned multiple times in the specs to do these two functions: to "open" the process screen up or basically attach the process screen (see specs page 3) AND to create a new process (see specs page 2). BOTH follow the exact same format, however another command `screen -r` is mentioned that does the screen attaching. Just in my opinion (Gian's opinion), `screen -s` should probably be used for creating the processes, and `screen -r` for attaching to a process screen.
