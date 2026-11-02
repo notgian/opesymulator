@@ -8,7 +8,11 @@ class ProcessControlBlock;
 enum class ICommandType {
     IO,
     PRINT,
-    LOOP
+    LOOP,
+    DECLARE,
+    ADD,
+    SUBTRACT,
+    SLEEP
 };
 
 class ICommand {

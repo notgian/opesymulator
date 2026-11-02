@@ -74,3 +74,15 @@ void ProcessControlBlock::setState(ProcessState state) {
 void ProcessControlBlock::setProgramCounter(int pc) {
     programCounter_.store(pc);
 }
+
+void ProcessControlBlock::setSleepTicks(int ticks) {
+    sleepTicks_.store(ticks);
+}
+
+int ProcessControlBlock::getSleepTicks() const {
+    return sleepTicks_.load();
+}
+
+void ProcessControlBlock::clearSleep() {
+    sleepTicks_.store(0);
+}

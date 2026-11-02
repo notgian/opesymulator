@@ -35,6 +35,11 @@ public:
     void setState(ProcessState state);
     void setProgramCounter(int pc);
 
+    // SLEEP support: ticks the process must stay off the CPU (0 = not sleeping)
+    void setSleepTicks(int ticks);
+    int getSleepTicks() const;
+    void clearSleep();
+
 
 private:
     int pid_;
@@ -44,6 +49,7 @@ private:
     // Atomic: written by a CPU worker thread, read by the UI thread (screen -ls)
     std::atomic<ProcessState> state_;
     std::atomic<int> programCounter_;
+    std::atomic<int> sleepTicks_{0};
 
     std::vector<std::shared_ptr<ICommand>> commandList;
     SymbolTable symbolTable;

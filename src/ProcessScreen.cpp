@@ -9,6 +9,15 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
       onExitCallback_(nullptr),
       interpreter_(false) {
 
+    interpreter_.registerCommand("process-smi", [this](const std::string&) {
+        printLogs();
+
+        return CommandResult{
+            CommandStatus::SUCCESS,
+            {}
+        };
+    }, "  process-smi    - prints process logs and info");
+
     interpreter_.registerCommand("exit", [this](const std::string&) {
         if (onExitCallback_) {
             onExitCallback_();
@@ -20,6 +29,21 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
     }, "  exit           - exits the process screen");
 
     refreshDisplay();
+}
+
+void ProcessScreen::appendLogs(std::string& printContent) {
+    logs_.push_back(printContent);
+}
+    
+void ProcessScreen::printLogs() {
+    print("\nProcess name: " + getName());
+    print("ID: " + std::to_string(getPID()));
+    print("Logs:");
+    printLines(logs_);
+
+    if (getState() == ProcessState::TERMINATED) {
+        print("\nFinished!");
+    }
 }
 
 void ProcessScreen::handleKeyPress(char key) {

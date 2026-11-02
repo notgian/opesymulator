@@ -73,3 +73,5 @@ ccls-cache/*
 .vscode
 
 logs
+
+**csopesy-log.txt

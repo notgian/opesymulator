@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -38,6 +39,20 @@ public:
     bool assignProcessToCore(int coreId, std::shared_ptr<ProcessControlBlock> pcb);
     void clearCore(int coreId);
 
+    // Called when a process executes SLEEP: the core is freed (process is NOT terminated)
+    // and the callback receives the process so it can be parked until it wakes up.
+    using SleepCallback = std::function<void(std::shared_ptr<ProcessControlBlock>)>;
+    void setOnSleep(SleepCallback callback);
+
+    // Round robin support. The quantum is the number of CPU ticks a process may hold a
+    // core before it is preempted. 0 means "no preemption" (FCFS: run until done).
+    void setQuantum(std::uint64_t quantumCycles);
+
+    // Called when a process used up its quantum: the core is freed, the process goes back
+    // to READY and the callback re-queues it at the back of the ready queue.
+    using PreemptCallback = std::function<void(std::shared_ptr<ProcessControlBlock>)>;
+    void setOnPreempt(PreemptCallback callback);
+
     // Accessors (thread-safe)
     int getNumCores() const;
     bool isCoreBusy(int coreId) const;
@@ -45,6 +60,8 @@ public:
 
 private:
     void workerLoop(int coreId);
+    // Frees a core without terminating its process; the process is left in `newState`
+    void releaseCore(int coreId, ProcessState newState);
 
     std::vector<CPUCore> cores_;
     std::vector<std::thread> workers_;
@@ -54,4 +71,7 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable cv_;
     std::atomic<bool> stopping_{false};
+    SleepCallback onSleep_;
+    PreemptCallback onPreempt_;
+    std::atomic<std::uint64_t> quantumCycles_{0};
 };
