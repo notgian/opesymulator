@@ -17,18 +17,25 @@ void ProcessControlBlock::addCommand(std::shared_ptr<ICommand> command) {
 }
 
 // TODO: may need to revisit
-void ProcessControlBlock::executeCurrentCommand(int coreId) {
+int ProcessControlBlock::executeCurrentCommand(int coreId) {
     if (programCounter_ >= 0 && programCounter_ < static_cast<int>(commandList.size())) {
         if (commandList[programCounter_]) {
             symbolTable.setVariable("CORE_ID", coreId); 
-            commandList[programCounter_]->execute(symbolTable); 
+            return commandList[programCounter_]->execute(symbolTable); 
         }
     }
+
+    return 0;
 }
 
-void ProcessControlBlock::moveToNextLine() {
+// Instead of moving to next line, we "jump" to the next line
+void ProcessControlBlock::jumpLines(int jump) {
+    if (jump == 0) {
+        return;
+    }
+
     if (programCounter_.load() < static_cast<int>(commandList.size())) {
-        programCounter_++;
+        programCounter_ += jump;
     }
 }
 

@@ -7,7 +7,7 @@ PrintCommand::PrintCommand(int pid, const std::string& message)
     : ICommand(pid, ICommandType::PRINT), message_(message) {}
 
 
-void PrintCommand::execute(SymbolTable& symbolTable) {
+int PrintCommand::execute(SymbolTable& symbolTable) {
     // The executing core id is injected into the process' symbol table by the PCB
     int coreId = symbolTable.getVariable("CORE_ID");
 
@@ -18,4 +18,6 @@ void PrintCommand::execute(SymbolTable& symbolTable) {
     if (ProcessScreen* screen = dynamic_cast<ProcessScreen*>(getParentProcess())) {
         screen->print(formattedMessage);
     }
+
+    return 1;
 }
