@@ -11,12 +11,13 @@ int PrintCommand::execute(SymbolTable& symbolTable) {
     // The executing core id is injected into the process' symbol table by the PCB
     int coreId = symbolTable.getVariable("CORE_ID");
 
-    std::string formattedMessage = "[" + currentTimestamp() + "]: " +
+    std::string formattedMessage = "(" + currentTimestamp() + "): " + "Core: " + std::to_string(coreId) +
                                    " \"" + message_ + "\"";
 
     // Cast the parent process to ProcessScreen to print directly to its screen buffer
     if (ProcessScreen* screen = dynamic_cast<ProcessScreen*>(getParentProcess())) {
-        screen->print(formattedMessage);
+        screen->appendLogs(formattedMessage);
+        // screen->print(formattedMessage);
     }
 
     return 1;

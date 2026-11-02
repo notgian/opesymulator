@@ -13,6 +13,9 @@ public:
 
     ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt = "cmd> ");
 
+    void appendLogs(std::string& printContent);
+    void printLogs();
+
     // Input handling functions
     void handleKeyPress(char key);
     void handleBackspace();
@@ -22,6 +25,8 @@ public:
 
 private:
     void refreshDisplay();
+
+    std::vector<std::string> logs_;
 
     CommandInterpreter interpreter_;
     OnExitCallback onExitCallback_;
