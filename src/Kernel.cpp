@@ -1,5 +1,5 @@
 #include "Kernel.h"
-#include "PrintCommand.h"  // TODO: temporary for now
+#include "PrintCommand.h"
 #include "ProcessScreen.h"
 #include "Config.h"
 #include <algorithm>
@@ -81,7 +81,7 @@ void Kernel::onInitialization() {
         return CommandResult{CommandStatus::SUCCESS, buildUtilizationReport()};
     });
 
-    // 'screen -s' creates a new process and attaches to its screen
+    // 'screen -s' creates a new process
     interpreter_.registerCommand("screen -s", [this](const std::string& args) {
         std::string procName = trimSpaces(args);
         if (procName.empty()) {
@@ -96,8 +96,7 @@ void Kernel::onInitialization() {
         registerProcess(process);
         scheduler_->addProcess(process);
 
-        attachScreen(process);
-        return CommandResult{CommandStatus::SUCCESS, {}};
+        return CommandResult{CommandStatus::SUCCESS, {"Process '" + procName + "' created!"}};
     });
 
     // 'screen -r' reattaches to a process that has not finished yet
@@ -281,9 +280,7 @@ std::shared_ptr<ProcessScreen> Kernel::findProcess(const std::string& name) {
     return nullptr;
 }
 
-// Shows the process info right away, like the specs mockup, then swaps to that screen
 void Kernel::attachScreen(const std::shared_ptr<ProcessScreen>& process) {
-    process->printLogs();
     activeScreen_ = process;
 }
 

@@ -48,8 +48,11 @@ void ConsoleScreen::handleSpecial(int keyCode) {
         case UP_KEY:
             if (!commandHistory_.empty() && viewingCommandHistory_ < commandHistory_.size()) {
                 ++viewingCommandHistory_;
-                inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
-                refreshDisplay();
+                size_t targetIndex = commandHistory_.size() - viewingCommandHistory_;
+                if (targetIndex < commandHistory_.size()) {
+                    inputBuffer_ = commandHistory_.at(targetIndex);
+                    refreshDisplay();
+                }
             }
             break;
         case DOWN_KEY:
@@ -58,19 +61,14 @@ void ConsoleScreen::handleSpecial(int keyCode) {
                 if (viewingCommandHistory_ == 0) {
                     inputBuffer_.clear();
                 } else {
-                    inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
+                    size_t targetIndex = commandHistory_.size() - viewingCommandHistory_;
+                    if (targetIndex < commandHistory_.size()) {
+                        inputBuffer_ = commandHistory_.at(targetIndex);
+                    }
                 }
                 refreshDisplay(); // Required to update the screen
             }
-            if (viewingCommandHistory_ > 0) {
-                --viewingCommandHistory_;
-                inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
-            } else if (viewingCommandHistory_ <= 0) {
-                viewingCommandHistory_ = 0;
-                inputBuffer_.clear();
-            }
             break;
-
     }
 }
 

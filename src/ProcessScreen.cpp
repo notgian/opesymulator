@@ -38,6 +38,7 @@ void ProcessScreen::appendLogs(std::string& printContent) {
 void ProcessScreen::printLogs() {
     print("\nProcess name: " + getName());
     print("ID: " + std::to_string(getPID()));
+    print("Instructions: " + std::to_string(getProgramCounter()) + "/" + std::to_string(getTotalCommands()));
     print("Logs:");
     printLines(logs_);
 
