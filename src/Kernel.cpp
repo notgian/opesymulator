@@ -212,6 +212,12 @@ void Kernel::run() {
                 case 127:  // DEL
                     currentScreen->handleBackspace();
                     break;
+                case 0:
+                case 224:
+                    if (_kbhit()) {
+                        currentScreen->handleSpecial(_getch());
+                    }
+                    break;
                 default:
                     if (intercepted >= 32 && intercepted < 127) {
                         currentScreen->handleKeyPress(static_cast<char>(intercepted));

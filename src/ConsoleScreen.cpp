@@ -31,6 +31,8 @@ void ConsoleScreen::handleEnter() {
     history_.push_back(prompt_ + inputBuffer_);
 
     std::string commandText = inputBuffer_;
+    commandHistory_.push_back(inputBuffer_);
+    viewingCommandHistory_ = 0;
     inputBuffer_.clear();
 
     if (onCommandSubmitted_) {
@@ -38,6 +40,39 @@ void ConsoleScreen::handleEnter() {
     }
 
     refreshDisplay();
+}
+
+void ConsoleScreen::handleSpecial(int keyCode) {
+    std::lock_guard<std::recursive_mutex> lock(screenMutex_);
+    switch (keyCode) {
+        case UP_KEY:
+            print("UP!");
+            if (!commandHistory_.empty() && viewingCommandHistory_ < commandHistory_.size()) {
+                ++viewingCommandHistory_;
+                inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
+                refreshDisplay();
+            }
+            break;
+        case DOWN_KEY:
+            if (viewingCommandHistory_ > 0) {
+                --viewingCommandHistory_;
+                if (viewingCommandHistory_ == 0) {
+                    inputBuffer_.clear();
+                } else {
+                    inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
+                }
+                refreshDisplay(); // Required to update the screen
+            }
+            if (viewingCommandHistory_ > 0) {
+                --viewingCommandHistory_;
+                inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
+            } else if (viewingCommandHistory_ <= 0) {
+                viewingCommandHistory_ = 0;
+                inputBuffer_.clear();
+            }
+            break;
+
+    }
 }
 
 void ConsoleScreen::setOnCommandSubmitted(OnCommandSubmitted callback) {
