@@ -46,7 +46,6 @@ void ConsoleScreen::handleSpecial(int keyCode) {
     std::lock_guard<std::recursive_mutex> lock(screenMutex_);
     switch (keyCode) {
         case UP_KEY:
-            print("UP!");
             if (!commandHistory_.empty() && viewingCommandHistory_ < commandHistory_.size()) {
                 ++viewingCommandHistory_;
                 inputBuffer_ = commandHistory_.at(commandHistory_.size() - viewingCommandHistory_);
