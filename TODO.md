@@ -2,8 +2,8 @@
 This file will serve as a simple todo listfor what we still need implemented. Tick things off as you go when you commit your changes, and put your name beside what you did.
 
 - [x] FOR instruction [Gian]
-- [ ] The other instructions [Sky]
-- [ ] RR Scheduler function
+- [x] The other instructions [Sky]
+- [x] RR Scheduler function [Sky]
 - [ ] Main menu console commands
   - [ ] scheduler-start 
   - [ ] scheduler-stop

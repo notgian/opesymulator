@@ -1,5 +1,7 @@
 #include "Scheduler.h"
+#include <algorithm>
 #include <chrono>
+#include "CPU.h"   // CYCLE_DURATION_MS
 
 Scheduler::Scheduler(SchedulerMode schedulerMode, std::uint64_t quantumCycles) : currentMode_(schedulerMode), quantumCycles_(quantumCycles) {}
 
@@ -21,9 +23,41 @@ void Scheduler::addProcess(std::shared_ptr<ProcessControlBlock> pcb) {
     readyQueue_.push(pcb);
 }
 
+void Scheduler::addSleepingProcess(std::shared_ptr<ProcessControlBlock> pcb) {
+    // 1 CPU tick = CYCLE_DURATION_MS
+    auto wakeAt = std::chrono::steady_clock::now() +
+                  std::chrono::milliseconds(static_cast<long long>(pcb->getSleepTicks()) * CYCLE_DURATION_MS);
+    std::lock_guard<std::mutex> lock(sleepMutex_);
+    sleeping_.push_back({pcb, wakeAt});
+}
+
+void Scheduler::wakeSleepingProcesses() {
+    std::vector<std::shared_ptr<ProcessControlBlock>> awake;
+    {
+        std::lock_guard<std::mutex> lock(sleepMutex_);
+        auto now = std::chrono::steady_clock::now();
+        for (auto it = sleeping_.begin(); it != sleeping_.end();) {
+            if (it->wakeAt <= now) {
+                awake.push_back(it->pcb);
+                it = sleeping_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    for (auto& pcb : awake) {
+        pcb->clearSleep();
+        addProcess(pcb);   // back to the ready queue
+    }
+}
+
 void Scheduler::start(CPU& cpu) {
     if (thread_.joinable()) return;
     stopping_ = false;
+
+    // FCFS never preempts (quantum 0); round robin preempts after quantum-cycles ticks.
+    // A quantum below 1 would starve the process, so RR uses at least 1.
+    cpu.setQuantum(currentMode_ == SchedulerMode::RR ? std::max<std::uint64_t>(1, quantumCycles_) : 0);
     thread_ = std::thread([this, &cpu] {
         while (!stopping_) {
             update(cpu);
@@ -38,6 +72,8 @@ void Scheduler::stop() {
 }
 
 void Scheduler::update(CPU& cpu) {
+    wakeSleepingProcesses();
+
     // Check the active mode and dispatch to the correct algorithm
     switch (currentMode_) {
         case SchedulerMode::FCFS:
@@ -53,7 +89,18 @@ void Scheduler::update(CPU& cpu) {
 
 void Scheduler::FCFCSchedule(CPU& cpu) {
     // First-come-first-serve: the oldest process in the ready queue goes to the
-    // first idle core. Processes are never preempted.
+    // first idle core. The CPU never preempts (quantum 0), so it runs to completion.
+    dispatchToIdleCores(cpu);
+}
+
+void Scheduler::RRSchedule(CPU& cpu) {
+    // Round robin uses the same dispatch order as FCFS. The difference is that the CPU
+    // preempts a process after `quantum` ticks and hands it back through addProcess(),
+    // which puts it at the back of the queue, so everyone gets a turn.
+    dispatchToIdleCores(cpu);
+}
+
+void Scheduler::dispatchToIdleCores(CPU& cpu) {
     for (int i = 0; i < cpu.getNumCores(); ++i) {
         if (cpu.isCoreBusy(i)) continue;
 
@@ -66,9 +113,4 @@ void Scheduler::FCFCSchedule(CPU& cpu) {
         }
         cpu.assignProcessToCore(i, nextProcess);
     }
-}
-
-// TODO: implement RR scheduler
-void Scheduler::RRSchedule(CPU& cpu) {
-
 }

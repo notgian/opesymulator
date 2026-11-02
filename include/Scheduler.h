@@ -3,7 +3,9 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <chrono>
 #include <queue>
+#include <vector>
 #include <thread>
 #include <cstdint>
 #include "ProcessControlBlock.h"
@@ -24,6 +26,9 @@ public:
 
     void addProcess(std::shared_ptr<ProcessControlBlock> pcb);
 
+    // Parks a process that executed SLEEP; it returns to the ready queue once its ticks elapse
+    void addSleepingProcess(std::shared_ptr<ProcessControlBlock> pcb);
+
     // Scheduler thread: repeatedly dispatches ready processes to idle cores
     void start(CPU& cpu);
     void stop();
@@ -37,6 +42,14 @@ private:
     std::mutex queueMutex_;
     std::queue<std::shared_ptr<ProcessControlBlock>> readyQueue_;
 
+    struct SleepingEntry {
+        std::shared_ptr<ProcessControlBlock> pcb;
+        std::chrono::steady_clock::time_point wakeAt;
+    };
+    std::mutex sleepMutex_;
+    std::vector<SleepingEntry> sleeping_;
+    void wakeSleepingProcesses();
+
     std::thread thread_;
     std::atomic<bool> stopping_{false};
 
@@ -45,4 +58,7 @@ private:
     // Specific algorithm implementations
     void FCFCSchedule(CPU& cpu);
     void RRSchedule(CPU& cpu);
+
+    // Shared by both algorithms: oldest ready process -> first idle core
+    void dispatchToIdleCores(CPU& cpu);
 };

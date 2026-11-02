@@ -47,6 +47,16 @@ void Kernel::onInitialization() {
     cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu(), emulatorConfig_.getDelaysPerExec());
     scheduler_ = std::make_unique<Scheduler>(emulatorConfig_.getScheduler(), emulatorConfig_.getQuantumCycles());
 
+    // A process that executes SLEEP leaves its core and waits in the scheduler's sleep list
+    cpu_->setOnSleep([this](std::shared_ptr<ProcessControlBlock> pcb) {
+        scheduler_->addSleepingProcess(pcb);
+    });
+
+    // Round robin: a process whose quantum expired goes to the back of the ready queue
+    cpu_->setOnPreempt([this](std::shared_ptr<ProcessControlBlock> pcb) {
+        scheduler_->addProcess(pcb);
+    });
+
     // Register commands which only become available on initialization
 
     // 'screen -ls' prints the running / finished process lists

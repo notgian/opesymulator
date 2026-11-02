@@ -58,6 +58,32 @@ void CPU::clearCore(int coreId) {
     }
 }
 
+void CPU::setOnSleep(SleepCallback callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    onSleep_ = std::move(callback);
+}
+
+void CPU::setQuantum(std::uint64_t quantumCycles) {
+    quantumCycles_.store(quantumCycles);
+}
+
+void CPU::setOnPreempt(PreemptCallback callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    onPreempt_ = std::move(callback);
+}
+
+// Frees the core without marking the process TERMINATED (it is only WAITING or READY)
+void CPU::releaseCore(int coreId, ProcessState newState) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (coreId >= 0 && coreId < static_cast<int>(cores_.size())) {
+        if (cores_[coreId].currentProcess) {
+            cores_[coreId].currentProcess->setState(newState);
+        }
+        cores_[coreId].currentProcess = nullptr;
+        cores_[coreId].isBusy = false;
+    }
+}
+
 // Worker thread: one per core
 void CPU::workerLoop(int coreId) {
     while (true) {
@@ -71,8 +97,12 @@ void CPU::workerLoop(int coreId) {
         }
 
         std::uint64_t cyclesSinceLastExecution = execDelayCycles_;
+        bool sleeping = false;
+        bool preempted = false;
+        std::uint64_t ticksUsed = 0;                        // ticks spent on this core in this turn
+        const std::uint64_t quantum = quantumCycles_.load(); // 0 = FCFS, never preempt
 
-        // Run the process until it finishes (non-preemptive, as FCFS requires)
+        // Run the process until it finishes, sleeps, or (round robin) uses up its quantum
         while (!stopping_ && !pcb->hasFinished()) {
             if (cyclesSinceLastExecution < execDelayCycles_) {
                 ++cyclesSinceLastExecution;
@@ -82,11 +112,48 @@ void CPU::workerLoop(int coreId) {
                 cyclesSinceLastExecution = 0;
 
                 if (pcb->hasFinished()) break;
+
+                // SLEEP was just executed: relinquish the core
+                if (pcb->getSleepTicks() > 0) {
+                    sleeping = true;
+                    break;
+                }
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(CYCLE_DURATION_MS));
+
+            // One CPU tick has passed. Busy-wait (delays-per-exec) ticks count too, because
+            // the process is still occupying the core.
+            ++ticksUsed;
+            if (quantum > 0 && ticksUsed >= quantum) {
+                preempted = true;
+                break;
+            }
         }
         if (stopping_) return;
+
+        if (preempted) {
+            // Quantum expired and the process is not done: back of the ready queue
+            releaseCore(coreId, ProcessState::READY);
+            PreemptCallback cb;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                cb = onPreempt_;
+            }
+            if (cb) cb(pcb);
+            continue;
+        }
+
+        if (sleeping) {
+            releaseCore(coreId, ProcessState::WAITING);
+            SleepCallback cb;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                cb = onSleep_;
+            }
+            if (cb) cb(pcb);
+            continue;
+        }
 
         // Mark finished and free the core in one atomic step so a "screen -ls"
         // snapshot never sees the process as both running and finished.
