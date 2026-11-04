@@ -4,10 +4,10 @@ This file will serve as a simple todo listfor what we still need implemented. Ti
 - [x] FOR instruction [Gian]
 - [x] The other instructions [Sky]
 - [x] RR Scheduler function [Sky]
-- [ ] Main menu console commands
-  - [ ] scheduler-start 
-    - [ ] update generateInstructions function to properly use all the other instructions.
-  - [ ] scheduler-stop
+- [x] Main menu console commands
+  - [x] scheduler-start 
+    - [x] update generateInstructions function to properly use all the other instructions.
+  - [x] scheduler-stop
   - [x] report-util [MJ]
   - [x] screen (update to match specs** -- a bit of conflicting info about what -s should do, so idk)[^1] [MJ] (went with -s creates, -r attaches)
 - [x] process screen commands [Gian]

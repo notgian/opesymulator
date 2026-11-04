@@ -16,7 +16,7 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
             CommandStatus::SUCCESS,
             {}
         };
-    }, "  process-smi    - prints process logs and info");
+    }, "  process-smi      - prints process logs and info");
 
     interpreter_.registerCommand("exit", [this](const std::string&) {
         if (onExitCallback_) {
@@ -26,7 +26,7 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
             CommandStatus::EXIT_REQUESTED,
             {}
         };
-    }, "  exit           - exits the process screen");
+    }, "  exit             - exits the process screen");
 
     refreshDisplay();
 }

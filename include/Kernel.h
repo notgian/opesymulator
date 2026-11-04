@@ -20,11 +20,7 @@ public:
     Kernel(int screenWidth, int screenHeight);
     virtual ~Kernel() = default;
 
-    void run();
-
-private:
-    void printWelcome();
-    void clearScreen();
+    Config getConfig();
 
     // Process helpers shared by "screen -s" and the startup test processes
     std::shared_ptr<ProcessScreen> createProcess(const std::string& name);
@@ -33,6 +29,18 @@ private:
                               std::optional<int> minIns = std::nullopt, 
                               std::optional<int> maxIns = std::nullopt);
     std::shared_ptr<ProcessScreen> findProcess(const std::string& name);
+
+    void scheduleProcess(std::shared_ptr<ProcessControlBlock> pcb);
+
+    void spawnDummyProcess();
+
+    void run();
+
+private:
+    void printWelcome();
+    void clearScreen();
+
+
     void attachScreen(const std::shared_ptr<ProcessScreen>& process);
 
     // Shared by "screen -ls" and "report-util"

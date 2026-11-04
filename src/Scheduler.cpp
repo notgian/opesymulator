@@ -1,7 +1,8 @@
 #include "Scheduler.h"
 #include <algorithm>
 #include <chrono>
-#include "CPU.h"   // CYCLE_DURATION_MS
+#include "CPU.h"  
+#include "Kernel.h"
 
 Scheduler::Scheduler(SchedulerMode schedulerMode, std::uint64_t quantumCycles) : currentMode_(schedulerMode), quantumCycles_(quantumCycles) {}
 
@@ -73,6 +74,17 @@ void Scheduler::stop() {
 
 void Scheduler::update(CPU& cpu) {
     wakeSleepingProcesses();
+
+    globalTicks_++;
+
+
+    bool generateDummyProcs = cpu.getGenerateDummyProcs();
+    std::uint64_t batchProcFreq = cpu.kernel_.getConfig().getBatchProcessFreq();
+
+    if (generateDummyProcs && globalTicks_ % batchProcFreq == 0) {
+        cpu.kernel_.spawnDummyProcess();
+    }
+
 
     // Check the active mode and dispatch to the correct algorithm
     switch (currentMode_) {

@@ -1,9 +1,10 @@
 #include "CPU.h"
 #include "Config.h"
+#include "Kernel.h"
 #include <chrono>
 
-CPU::CPU(int numCores, std::uint64_t execDelayCycles)
-    : execDelayCycles_(execDelayCycles) {
+CPU::CPU(int numCores, std::uint64_t execDelayCycles, Kernel& kernel)
+    : execDelayCycles_(execDelayCycles), kernel_(kernel) {
     for (int i = 0; i < numCores; ++i) {
         cores_.push_back({i, false, nullptr});
     }
@@ -125,6 +126,7 @@ void CPU::workerLoop(int coreId) {
             // One CPU tick has passed. Busy-wait (delays-per-exec) ticks count too, because
             // the process is still occupying the core.
             ++ticksUsed;
+
             if (quantum > 0 && ticksUsed >= quantum) {
                 preempted = true;
                 break;
@@ -179,4 +181,12 @@ std::vector<RunningEntry> CPU::getRunningProcesses() const {
         }
     }
     return result;
+}
+
+void CPU::setGenerateDummyProcs(bool value) {
+    generateDummyProcesses_ = value;
+}
+
+bool CPU::getGenerateDummyProcs() {
+    return generateDummyProcesses_;
 }

@@ -10,6 +10,9 @@
 #include <cstdint>
 #include "ProcessControlBlock.h"
 
+// Forward declaration to prevent circular dependencies
+class Kernel;
+
 constexpr int CYCLE_DURATION_MS = 100;
 
 struct CPUCore {
@@ -29,7 +32,7 @@ struct RunningEntry {
 // (FCFS = non-preemptive), then releases the core.
 class CPU {
 public:
-    CPU(int numCores, std::uint64_t execDelayCycles);
+    CPU(int numCores, std::uint64_t execDelayCycles, Kernel& kernel);
     ~CPU();
 
     void start();   // spawn one worker thread per core
@@ -58,10 +61,19 @@ public:
     bool isCoreBusy(int coreId) const;
     std::vector<RunningEntry> getRunningProcesses() const;   // sorted by core id
 
+    void setGenerateDummyProcs(bool value);
+    bool getGenerateDummyProcs();
+
+    friend class Scheduler;
+
+
 private:
     void workerLoop(int coreId);
     // Frees a core without terminating its process; the process is left in `newState`
     void releaseCore(int coreId, ProcessState newState);
+
+    bool generateDummyProcesses_ = false;
+    std::uint64_t batchProcessFreq_ ;
 
     std::vector<CPUCore> cores_;
     std::vector<std::thread> workers_;
@@ -74,4 +86,6 @@ private:
     SleepCallback onSleep_;
     PreemptCallback onPreempt_;
     std::atomic<std::uint64_t> quantumCycles_{0};
+
+    Kernel& kernel_;
 };

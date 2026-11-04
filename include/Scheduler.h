@@ -54,6 +54,7 @@ private:
     std::atomic<bool> stopping_{false};
 
     std::uint64_t quantumCycles_;
+    std::uint64_t globalTicks_;
 
     // Specific algorithm implementations
     void FCFCSchedule(CPU& cpu);

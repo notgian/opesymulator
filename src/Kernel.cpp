@@ -69,7 +69,7 @@ Kernel::Kernel(int screenWidth, int screenHeight)
 
 void Kernel::onInitialization() {
     // Initialize the cpu and scheduler
-    cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu(), emulatorConfig_.getDelaysPerExec());
+    cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu(), emulatorConfig_.getDelaysPerExec(), *this);
     scheduler_ = std::make_unique<Scheduler>(emulatorConfig_.getScheduler(), emulatorConfig_.getQuantumCycles());
 
     // A process that executes SLEEP leaves its core and waits in the scheduler's sleep list
@@ -79,7 +79,8 @@ void Kernel::onInitialization() {
 
     // Round robin: a process whose quantum expired goes to the back of the ready queue
     cpu_->setOnPreempt([this](std::shared_ptr<ProcessControlBlock> pcb) {
-        scheduler_->addProcess(pcb);
+        scheduleProcess(pcb);
+        // scheduler_->addProcess(pcb);
     });
 
     // Register commands which only become available on initialization
@@ -102,7 +103,8 @@ void Kernel::onInitialization() {
         std::shared_ptr<ProcessScreen> process = createProcess(procName);
         generateInstructions(*process);
         registerProcess(process);
-        scheduler_->addProcess(process);
+        scheduleProcess(process);
+        // scheduler_->addProcess(process);
 
         return CommandResult{CommandStatus::SUCCESS, {"Process '" + procName + "' created!"}};
     });
@@ -125,7 +127,17 @@ void Kernel::onInitialization() {
 
     interpreter_.registerCommand("screen", [this](const std::string& args) {
         return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls OR screen -s <process_name> OR screen -r <process_name>"}};
-    }, "  screen         - lists processes (-ls), creates (-s <name>) or reattaches (-r <name>)" );
+    }, "  screen           - lists processes (-ls), creates (-s <name>) or reattaches (-r <name>)" );
+
+    interpreter_.registerCommand("scheduler-start", [this](const std::string& args) {
+        cpu_->setGenerateDummyProcs(true);
+        return CommandResult{CommandStatus::SUCCESS, {"Started generating dummy processes"}};
+    }, "  scheduler-start  - starts generating dummy processes" );
+
+    interpreter_.registerCommand("scheduler-stop", [this](const std::string& args) {
+        cpu_->setGenerateDummyProcs(false);
+        return CommandResult{CommandStatus::SUCCESS, {"Stopeeed generating dummy processes"}};
+    }, "  scheduler-stop   - stops generating dummy processes" );
 
     // 'report-util' saves the same report as 'screen -ls' into csopesy-log.txt
     interpreter_.registerCommand("report-util", [this](const std::string& args) {
@@ -146,12 +158,13 @@ void Kernel::onInitialization() {
             : REPORT_FILE_PATH;
 
         return CommandResult{CommandStatus::SUCCESS, {"Report generated at " + reportPath + "!"}};
-    }, "  report-util    - saves the CPU utilization report to csopesy-log.txt" );
+    }, "  report-util      - saves the CPU utilization report to csopesy-log.txt" );
 
     // Multi-threaded execution: 1 scheduler thread + 1 worker thread per core.
     // Everything is queued now (first-come-first-serve order = screen_01 first).
     for (const auto& pcb : allProcesses_) {
-        scheduler_->addProcess(pcb);
+        scheduleProcess(pcb);
+        // scheduler_->addProcess(pcb);
     }
 
     cpu_->start();
@@ -197,7 +210,7 @@ void Kernel::run() {
 
         onInitialization();
         return CommandResult{CommandStatus::SUCCESS, message};
-    }, "  initialize     - initializes the emulator configuration" );
+    }, "  initialize       - initializes the emulator configuration" );
 
     // ---------------------------------------------------------------------
 
@@ -478,4 +491,28 @@ void Kernel::printWelcome() {
 
 void Kernel::clearScreen() {
     std::cout << "\033[2J\033[H";
+}
+
+Config Kernel::getConfig() {
+    return emulatorConfig_;
+}
+
+void Kernel::scheduleProcess(std::shared_ptr<ProcessControlBlock> pcb) {
+    if (scheduler_) {
+        scheduler_->addProcess(pcb);
+    }
+}
+
+void Kernel::spawnDummyProcess() {
+    // Generate a unique process name using the next available integer ID
+    std::string procName = "p_" + std::to_string(nextPid_.load());
+    while (findProcess(procName) != nullptr) {
+        nextPid_++;
+        procName = "p_" + std::to_string(nextPid_.load());
+    }
+
+    std::shared_ptr<ProcessScreen> process = createProcess(procName);
+    generateInstructions(*process);
+    registerProcess(process);
+    scheduleProcess(process);
 }
