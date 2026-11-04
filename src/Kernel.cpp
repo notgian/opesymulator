@@ -1,7 +1,14 @@
 #include "Kernel.h"
 #include "PrintCommand.h"
+#include "DeclareCommand.h"
+#include "AddCommand.h"
+#include "SubtractCommand.h"
+#include "SleepCommand.h"
+#include "ForCommand.h"
 #include "ProcessScreen.h"
+#include "Operand.h"
 #include "Config.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -10,6 +17,7 @@
 #include <random>
 #include <conio.h>
 #include <windows.h>
+#include <vector>
 
 namespace {
 
@@ -258,15 +266,137 @@ void Kernel::registerProcess(const std::shared_ptr<ProcessScreen>& process) {
 // Gives the process a random number of instructions between min-ins and max-ins.
 // For now every instruction is the default PRINT from the specs; scheduler-start
 // can replace this with randomized instruction types.
-void Kernel::generateInstructions(ProcessScreen& process) {
+void Kernel::generateInstructions(ProcessScreen& process, 
+                                  std::optional<int> minIns, 
+                                  std::optional<int> maxIns) {
     static std::mt19937_64 rng(std::random_device{}());
-    std::uniform_int_distribution<std::uint64_t> countDist(emulatorConfig_.getMinIns(), emulatorConfig_.getMaxIns());
+
+    int effectiveMin = minIns.value_or(emulatorConfig_.getMinIns());
+    int effectiveMax = maxIns.value_or(emulatorConfig_.getMaxIns());
+
+    if (effectiveMax < effectiveMin) {
+        throw std::runtime_error("Maximum instruction cannot be less than minimum instructions");
+    }
+
+    std::uniform_int_distribution<std::uint64_t> countDist(effectiveMin, effectiveMax);
+
+    std::uniform_int_distribution<std::uint64_t> sleepDist(1, 1000);
+    std::uniform_int_distribution<std::uint64_t> forInsDist(5, 20);
+    std::uniform_int_distribution<std::uint64_t> forRepeatsDist(3, 10);
+
+    double weightPrint   = 1.0;
+    double weightDeclare = 5.0;
+    double weightAdd     = 8.0;
+    double weightSub     = 6.0;
+    double weightSleep   = 2.0;
+    double weightFor     = 0.1;
+
+    std::discrete_distribution<int> instructionDist({
+        weightPrint, 
+        weightDeclare, 
+        weightAdd,
+        weightSub,
+        weightSleep,
+        weightFor
+    });
 
     std::uint64_t instructionCount = countDist(rng);
-    std::string message = "Hello world from " + process.getName() + "!";
+
+    std::vector<std::uint64_t> varIndices;
+    varIndices.clear();
+
+    // Helper lambda to randomly generate an Operand (either a literal or a declared variable)
+    auto getRandomOperand = [&](std::mt19937_64& gen) -> Operand {
+        std::uniform_int_distribution<int> typeDist(0, 1); // 0 = literal, 1 = variable
+        bool chooseVar = (typeDist(gen) == 1) && !varIndices.empty();
+
+        if (chooseVar) {
+            std::uniform_int_distribution<size_t> varDist(0, varIndices.size() - 1);
+            std::uint64_t vIndex = varIndices[varDist(gen)];
+            return Operand::variable("var_" + std::to_string(vIndex));
+        } else {
+            std::uniform_int_distribution<int> valDist(0, 100);
+            return Operand::literal(valDist(gen));
+        }
+    };
+
+    // Helper lambda to choose a destination variable name (either an existing variable or "result")
+    auto getRandomDestination = [&](std::mt19937_64& gen) -> std::string {
+        if (!varIndices.empty() && (std::uniform_int_distribution<int>(0, 1)(gen) == 1)) {
+            std::uniform_int_distribution<size_t> varDist(0, varIndices.size() - 1);
+            return "var_" + std::to_string(varIndices[varDist(gen)]);
+        }
+        return "result";
+    };
+
+    // Helper lambda to create a PrintCommand that sometimes injects an existing variable's value
+    auto getRandomPrintCommand = [&](std::mt19937_64& gen, const std::string& prefix) -> std::shared_ptr<PrintCommand> {
+        if (!varIndices.empty() && (std::uniform_int_distribution<int>(0, 1)(gen) == 1)) {
+            std::uniform_int_distribution<size_t> varDist(0, varIndices.size() - 1);
+            std::string varName = "var_" + std::to_string(varIndices[varDist(gen)]);
+            return std::make_shared<PrintCommand>(process.getPID(), prefix + " [" + varName + "]: ", varName);
+        }
+        return std::make_shared<PrintCommand>(process.getPID(), prefix);
+    };
 
     for (std::uint64_t i = 0; i < instructionCount; ++i) {
-        process.addCommand(std::make_shared<PrintCommand>(process.getPID(), message));
+        int choice = instructionDist(rng);
+
+        switch (choice) {
+            case 0: { // PrintCommand
+                std::string msg = "Hello from " + process.getName() + " (step " + std::to_string(i) + ")";
+                process.addCommand(getRandomPrintCommand(rng, msg));
+                break;
+            }
+            case 1: { // DeclareCommand
+                varIndices.push_back(i);
+                std::string varName = "var_" + std::to_string(i);
+                process.addCommand(std::make_shared<DeclareCommand>(process.getPID(), varName, 0));
+                break;
+            }
+            case 2: { // AddCommand
+                process.addCommand(std::make_shared<AddCommand>(
+                    process.getPID(), 
+                    getRandomDestination(rng), 
+                    getRandomOperand(rng), 
+                    getRandomOperand(rng)
+                ));
+                break;
+            }
+            case 3: { // SubtractCommand
+                process.addCommand(std::make_shared<SubtractCommand>(
+                    process.getPID(),
+                    getRandomDestination(rng),
+                    getRandomOperand(rng),
+                    getRandomOperand(rng)));
+                break;
+            }
+            case 4: { // SleepCommand
+                int ticks = sleepDist(rng);
+                process.addCommand(std::make_shared<SleepCommand>(
+                    process.getPID(), 
+                    5
+                ));
+                break;
+            }
+            case 5: { // ForCommand
+                int forInsCount = forInsDist(rng);
+                int repeats = forRepeatsDist(rng);
+
+                std::shared_ptr<ForCommand> forInstr = std::make_shared<ForCommand>(process.getPID(), repeats);
+                process.addCommand(forInstr);
+
+                for (int j=0; j < forInsCount; ++j) {
+                    forInstr->addCommand(std::make_shared<AddCommand>(
+                        process.getPID(), 
+                        "for_adds", 
+                        Operand::literal(static_cast<int>(i)), 
+                        Operand::literal(1)
+                    ));
+                }
+                break;
+            }
+        }
     }
 }
 

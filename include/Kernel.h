@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <optional>
 
 
 class Kernel {
@@ -28,7 +29,9 @@ private:
     // Process helpers shared by "screen -s" and the startup test processes
     std::shared_ptr<ProcessScreen> createProcess(const std::string& name);
     void registerProcess(const std::shared_ptr<ProcessScreen>& process);
-    void generateInstructions(ProcessScreen& process);
+    void generateInstructions(ProcessScreen& process, 
+                              std::optional<int> minIns = std::nullopt, 
+                              std::optional<int> maxIns = std::nullopt);
     std::shared_ptr<ProcessScreen> findProcess(const std::string& name);
     void attachScreen(const std::shared_ptr<ProcessScreen>& process);
 
