@@ -33,9 +33,8 @@ std::shared_ptr<ProcessControlBlock> Scheduler::popReady() {
 }
 
 void Scheduler::addSleepingProcess(std::shared_ptr<ProcessControlBlock> pcb) {
-    // 1 CPU tick = CYCLE_DURATION_MS
-    auto wakeAt = std::chrono::steady_clock::now() +
-                  std::chrono::milliseconds(static_cast<long long>(pcb->getSleepTicks()) * CYCLE_DURATION_MS);
+    // SLEEP (X) lasts X CPU ticks, counted on the same clock as everything else
+    std::uint64_t wakeAt = globalTicks_.load() + static_cast<std::uint64_t>(pcb->getSleepTicks());
     std::lock_guard<std::mutex> lock(sleepMutex_);
     sleeping_.push_back({pcb, wakeAt});
 }
@@ -44,9 +43,9 @@ void Scheduler::wakeSleepingProcesses() {
     std::vector<std::shared_ptr<ProcessControlBlock>> awake;
     {
         std::lock_guard<std::mutex> lock(sleepMutex_);
-        auto now = std::chrono::steady_clock::now();
+        const std::uint64_t now = globalTicks_.load();
         for (auto it = sleeping_.begin(); it != sleeping_.end();) {
-            if (it->wakeAt <= now) {
+            if (it->wakeAtTick <= now) {
                 awake.push_back(it->pcb);
                 it = sleeping_.erase(it);
             } else {
@@ -68,9 +67,16 @@ void Scheduler::start(CPU& cpu) {
     // A quantum below 1 would starve the process, so RR uses at least 1.
     cpu.setQuantum(currentMode_ == SchedulerMode::RR ? std::max<std::uint64_t>(1, quantumCycles_) : 0);
     thread_ = std::thread([this, &cpu] {
+        // One loop pass = one CPU tick, paced at a fixed real-time rate.
+        auto nextTick = std::chrono::steady_clock::now();
         while (!stopping_) {
             update(cpu);
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            nextTick += std::chrono::milliseconds(TICK_DURATION_MS);
+            auto now = std::chrono::steady_clock::now();
+            if (nextTick + std::chrono::milliseconds(10 * TICK_DURATION_MS) < now) {
+                nextTick = now;   // fell far behind (e.g. machine hiccup): do not burst ticks
+            }
+            std::this_thread::sleep_until(nextTick);
         }
     });
 }
@@ -81,10 +87,10 @@ void Scheduler::stop() {
 }
 
 void Scheduler::update(CPU& cpu) {
-    wakeSleepingProcesses();
-
+    // Start of a new CPU tick
     globalTicks_++;
 
+    wakeSleepingProcesses();
 
     bool generateDummyProcs = cpu.getGenerateDummyProcs();
     std::uint64_t batchProcFreq = cpu.kernel_.getConfig().getBatchProcessFreq();
@@ -105,6 +111,10 @@ void Scheduler::update(CPU& cpu) {
         default:
             break;
     }
+
+    // End of the frame pass: release the cores for this tick. Each core now executes exactly
+    // one step (one instruction, or one busy-wait cycle) of its current process.
+    cpu.advanceTick();
 }
 
 void Scheduler::FCFCSchedule(CPU& cpu) {

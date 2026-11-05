@@ -28,6 +28,10 @@ void CPU::stop() {
         stopping_ = true;
     }
     cv_.notify_all();
+    {   // make sure no worker misses the stop signal while waiting for a tick
+        std::lock_guard<std::mutex> tickLock(tickMutex_);
+    }
+    tickCv_.notify_all();
     for (auto& t : workers_) {
         if (t.joinable()) t.join();
     }
@@ -119,14 +123,19 @@ void CPU::releaseCore(int coreId, ProcessState newState) {
 
 // Worker thread: one per core
 void CPU::workerLoop(int coreId) {
+    std::uint64_t lastTick = tick_.load();   // last tick this core has already worked on
+
     while (true) {
         std::shared_ptr<ProcessControlBlock> pcb;
 
         {   // Wait until the scheduler hands this core a process
             std::unique_lock<std::mutex> lock(mutex_);
+            const bool wasIdle = (cores_[coreId].currentProcess == nullptr);
             cv_.wait(lock, [&] { return stopping_ || cores_[coreId].currentProcess != nullptr; });
             if (stopping_) return;
             pcb = cores_[coreId].currentProcess;
+            // An idle core did not work during the ticks that passed; do not "catch up" on them.
+            if (wasIdle) lastTick = tick_.load();
         }
 
         std::uint64_t cyclesSinceLastExecution = execDelayCycles_;
@@ -137,6 +146,14 @@ void CPU::workerLoop(int coreId) {
 
         // Run the process until it finishes, sleeps, or (round robin) uses up its quantum
         while (!stopping_ && !pcb->hasFinished()) {
+            // Lock-step with the CPU clock: one step of work per tick, never more.
+            {
+                std::unique_lock<std::mutex> tickLock(tickMutex_);
+                tickCv_.wait(tickLock, [&] { return stopping_ || tick_.load() > lastTick; });
+            }
+            if (stopping_) break;
+            ++lastTick;
+
             if (cyclesSinceLastExecution < execDelayCycles_) {
                 ++cyclesSinceLastExecution;
             } else {
@@ -151,12 +168,6 @@ void CPU::workerLoop(int coreId) {
                     sleeping = true;
                     break;
                 }
-            }
-
-            if (EXEC_TICK_MS > 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(EXEC_TICK_MS));
-            } else {
-                std::this_thread::yield();
             }
 
             // One CPU tick has passed. Busy-wait (delays-per-exec) ticks count too, because
@@ -207,6 +218,20 @@ std::vector<RunningEntry> CPU::getRunningProcesses() const {
         }
     }
     return result;
+}
+
+std::uint64_t CPU::advanceTick() {
+    std::uint64_t now;
+    {
+        std::lock_guard<std::mutex> lock(tickMutex_);
+        now = ++tick_;
+    }
+    tickCv_.notify_all();
+    return now;
+}
+
+std::uint64_t CPU::currentTick() const {
+    return tick_.load();
 }
 
 void CPU::setGenerateDummyProcs(bool value) {

@@ -47,7 +47,7 @@ private:
 
     struct SleepingEntry {
         std::shared_ptr<ProcessControlBlock> pcb;
-        std::chrono::steady_clock::time_point wakeAt;
+        std::uint64_t wakeAtTick;   // global CPU tick at which the process wakes up
     };
     std::mutex sleepMutex_;
     std::vector<SleepingEntry> sleeping_;
@@ -57,7 +57,7 @@ private:
     std::atomic<bool> stopping_{false};
 
     std::uint64_t quantumCycles_;
-    std::uint64_t globalTicks_ = 0;
+    std::atomic<std::uint64_t> globalTicks_{0};
 
     // Specific algorithm implementations
     void FCFCSchedule(CPU& cpu);

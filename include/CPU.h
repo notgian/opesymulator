@@ -13,13 +13,16 @@
 // Forward declaration to prevent circular dependencies
 class Kernel;
 
-// Real time that one SLEEP tick lasts (used by the scheduler's sleep list)
-constexpr int CYCLE_DURATION_MS = 100;
-
-// Real time a core spends per executed instruction/tick. 0 = no artificial delay (the core
-// just yields), so cores execute much faster than the scheduler generates processes.
-// Raise this if you want to visibly "slow down" execution for demos.
-constexpr int EXEC_TICK_MS = 0;
+// One CPU tick = one frame pass of the scheduler thread (see the spec's CPU tick pseudocode).
+// Everything that is measured in "CPU cycles" is counted in these ticks and nothing else:
+//   - batch-process-freq (a new dummy process every N ticks)
+//   - quantum-cycles     (a core may hold a process for N ticks)
+//   - delay-per-exec     (busy-wait ticks between two instructions)
+//   - SLEEP (X)          (the process sleeps for X ticks)
+// Each core executes at most one tick of work per tick, so the config.txt values behave the
+// same regardless of how fast the machine is. TICK_DURATION_MS is only the real time one tick
+// takes; it does not change any result, just how fast the emulator runs on screen.
+constexpr int TICK_DURATION_MS = 10;
 
 struct CPUCore {
     int coreId;
@@ -75,6 +78,11 @@ public:
     void setGenerateDummyProcs(bool value);
     bool getGenerateDummyProcs();
 
+    // Global CPU tick clock. The scheduler thread advances it once per frame pass; every core
+    // worker waits for the next tick before executing one step.
+    std::uint64_t advanceTick();
+    std::uint64_t currentTick() const;
+
     friend class Scheduler;
 
 
@@ -99,6 +107,11 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable cv_;
     std::atomic<bool> stopping_{false};
+
+    std::atomic<std::uint64_t> tick_{0};
+    std::mutex tickMutex_;
+    std::condition_variable tickCv_;
+
     SleepCallback onSleep_;
     PreemptCallback onPreempt_;
     PullCallback pullNext_;
