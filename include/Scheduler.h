@@ -26,6 +26,9 @@ public:
 
     void addProcess(std::shared_ptr<ProcessControlBlock> pcb);
 
+    // Takes the oldest ready process (nullptr if none). Used by cores to pick their own next job.
+    std::shared_ptr<ProcessControlBlock> popReady();
+
     // Parks a process that executed SLEEP; it returns to the ready queue once its ticks elapse
     void addSleepingProcess(std::shared_ptr<ProcessControlBlock> pcb);
 
@@ -54,7 +57,7 @@ private:
     std::atomic<bool> stopping_{false};
 
     std::uint64_t quantumCycles_;
-    std::uint64_t globalTicks_;
+    std::uint64_t globalTicks_ = 0;
 
     // Specific algorithm implementations
     void FCFCSchedule(CPU& cpu);
