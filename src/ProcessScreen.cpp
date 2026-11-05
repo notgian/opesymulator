@@ -50,22 +50,26 @@ void ProcessScreen::printLogs() {
 void ProcessScreen::handleKeyPress(char key) {
     if (!std::isprint(static_cast<unsigned char>(key))) return;
     std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
+    scrollOffset_ = 0;   // typing jumps back to the bottom
     inputBuffer_.push_back(key);
     refreshDisplay(); 
 }
 
 void ProcessScreen::handleBackspace() {
     std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
+    scrollOffset_ = 0;
     if (!inputBuffer_.empty()) {
         inputBuffer_.pop_back();
-        refreshDisplay(); 
     }
+    refreshDisplay();
 }
 
 void ProcessScreen::handleEnter() {
     std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
+    scrollOffset_ = 0;
     // Echo typed input into scrollback history
     history_.push_back(prompt_ + inputBuffer_);
+    const size_t echoLine = history_.size() - 1;
 
     std::string commandText = inputBuffer_;
     inputBuffer_.clear();
@@ -80,6 +84,7 @@ void ProcessScreen::handleEnter() {
         onCommandSubmitted_(commandText);
     }
 
+    showOutputFrom(echoLine);
     refreshDisplay();
 }
 
@@ -90,18 +95,7 @@ void ProcessScreen::setOnExit(OnExitCallback callback) {
 
 void ProcessScreen::refreshDisplay() {
     std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
-    std::vector<std::string> visible;
-
-    int rowsForHistory = std::max(0, height_ - 1);
-    int totalHistory = static_cast<int>(history_.size());
-    int startIndex = std::max(0, totalHistory - rowsForHistory);
-
-    for (int i = startIndex; i < totalHistory; ++i) {
-        visible.push_back(history_[i]);
-    }
-
-    // Always keep the active typing prompt and input buffer locked to the bottom-most line
-    visible.push_back(prompt_ + inputBuffer_);
-
-    setText(visible);
+    // Same windowing as the main console: honors scrolling, otherwise keeps the typing
+    // prompt locked to the bottom-most line
+    setText(buildVisibleLines());
 }
