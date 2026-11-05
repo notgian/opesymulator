@@ -13,7 +13,13 @@
 // Forward declaration to prevent circular dependencies
 class Kernel;
 
+// Real time that one SLEEP tick lasts (used by the scheduler's sleep list)
 constexpr int CYCLE_DURATION_MS = 100;
+
+// Real time a core spends per executed instruction/tick. 0 = no artificial delay (the core
+// just yields), so cores execute much faster than the scheduler generates processes.
+// Raise this if you want to visibly "slow down" execution for demos.
+constexpr int EXEC_TICK_MS = 0;
 
 struct CPUCore {
     int coreId;
@@ -56,6 +62,11 @@ public:
     using PreemptCallback = std::function<void(std::shared_ptr<ProcessControlBlock>)>;
     void setOnPreempt(PreemptCallback callback);
 
+    // Lets a core take the next ready process itself the moment it frees up, instead of
+    // sitting idle until the scheduler thread's next pass. Returns nullptr if none is ready.
+    using PullCallback = std::function<std::shared_ptr<ProcessControlBlock>()>;
+    void setPullNext(PullCallback callback);
+
     // Accessors (thread-safe)
     int getNumCores() const;
     bool isCoreBusy(int coreId) const;
@@ -72,7 +83,12 @@ private:
     // Frees a core without terminating its process; the process is left in `newState`
     void releaseCore(int coreId, ProcessState newState);
 
-    bool generateDummyProcesses_ = false;
+    // Ends the current turn on a core in ONE critical section: the process gets `newState`,
+    // is re-queued (preempted) or parked (sleeping) if asked, and the core immediately pulls
+    // the next ready process, if any.
+    void finishTurn(int coreId, ProcessState newState, bool requeue = false, bool park = false);
+
+    std::atomic<bool> generateDummyProcesses_{false};
     std::uint64_t batchProcessFreq_ ;
 
     std::vector<CPUCore> cores_;
@@ -85,6 +101,7 @@ private:
     std::atomic<bool> stopping_{false};
     SleepCallback onSleep_;
     PreemptCallback onPreempt_;
+    PullCallback pullNext_;
     std::atomic<std::uint64_t> quantumCycles_{0};
 
     Kernel& kernel_;

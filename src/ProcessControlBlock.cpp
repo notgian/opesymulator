@@ -7,6 +7,7 @@ ProcessControlBlock::ProcessControlBlock(int pid, const std::string& name)
       creationTime_(currentTimestamp()),
       state_(ProcessState::READY),
       programCounter_(0) {
+    symbolTable.setVariable("x", 0);
 }
 
 void ProcessControlBlock::addCommand(std::shared_ptr<ICommand> command) {

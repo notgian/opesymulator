@@ -73,6 +73,38 @@ void CPU::setOnPreempt(PreemptCallback callback) {
     onPreempt_ = std::move(callback);
 }
 
+void CPU::setPullNext(PullCallback callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    pullNext_ = std::move(callback);
+}
+
+// Lock order: mutex_ -> (scheduler queue / sleep mutex). Nothing takes them the other way round.
+void CPU::finishTurn(int coreId, ProcessState newState, bool requeue, bool park) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (coreId < 0 || coreId >= static_cast<int>(cores_.size())) return;
+    CPUCore& core = cores_[coreId];
+
+    std::shared_ptr<ProcessControlBlock> done = core.currentProcess;
+    core.currentProcess = nullptr;
+    core.isBusy = false;
+
+    if (done) {
+        done->setState(newState);
+        if (requeue && onPreempt_) onPreempt_(done);   // back of the ready queue
+        else if (park && onSleep_) onSleep_(done);     // into the scheduler's sleep list
+    }
+
+    // Take the next ready process right away (no idle gap waiting for the scheduler thread)
+    if (pullNext_) {
+        std::shared_ptr<ProcessControlBlock> next = pullNext_();
+        if (next) {
+            core.currentProcess = next;
+            core.isBusy = true;
+            next->setState(ProcessState::RUNNING);
+        }
+    }
+}
+
 // Frees the core without marking the process TERMINATED (it is only WAITING or READY)
 void CPU::releaseCore(int coreId, ProcessState newState) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -121,7 +153,11 @@ void CPU::workerLoop(int coreId) {
                 }
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(CYCLE_DURATION_MS));
+            if (EXEC_TICK_MS > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(EXEC_TICK_MS));
+            } else {
+                std::this_thread::yield();
+            }
 
             // One CPU tick has passed. Busy-wait (delays-per-exec) ticks count too, because
             // the process is still occupying the core.
@@ -135,31 +171,21 @@ void CPU::workerLoop(int coreId) {
         if (stopping_) return;
 
         if (preempted) {
-            // Quantum expired and the process is not done: back of the ready queue
-            releaseCore(coreId, ProcessState::READY);
-            PreemptCallback cb;
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                cb = onPreempt_;
-            }
-            if (cb) cb(pcb);
+            // Quantum expired and the process is not done: back of the ready queue,
+            // and this core immediately takes the next ready process.
+            finishTurn(coreId, ProcessState::READY, /*requeue=*/true);
             continue;
         }
 
         if (sleeping) {
-            releaseCore(coreId, ProcessState::WAITING);
-            SleepCallback cb;
-            {
-                std::lock_guard<std::mutex> lock(mutex_);
-                cb = onSleep_;
-            }
-            if (cb) cb(pcb);
+            // SLEEP: free the core, park the process until its ticks elapse
+            finishTurn(coreId, ProcessState::WAITING, /*requeue=*/false, /*park=*/true);
             continue;
         }
 
-        // Mark finished and free the core in one atomic step so a "screen -ls"
+        // Finished. Mark TERMINATED and free the core in one atomic step so a "screen -ls"
         // snapshot never sees the process as both running and finished.
-        clearCore(coreId);
+        finishTurn(coreId, ProcessState::TERMINATED);
     }
 }
 

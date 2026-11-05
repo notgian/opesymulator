@@ -83,12 +83,19 @@ void Kernel::onInitialization() {
         // scheduler_->addProcess(pcb);
     });
 
+    // A core that frees up takes the next ready process itself (no wait for the scheduler thread)
+    cpu_->setPullNext([this]() {
+        return scheduler_->popReady();
+    });
+
     // Register commands which only become available on initialization
 
     // 'screen -ls' prints the CPU utilization and the running / finished process lists
-    interpreter_.registerCommand("screen -ls", [this](const std::string& args) {
+    auto screenLs = [this](const std::string& args) {
         return CommandResult{CommandStatus::SUCCESS, buildUtilizationReport()};
-    });
+    };
+    interpreter_.registerCommand("screen -ls", screenLs);
+    interpreter_.registerCommand("screen-ls", screenLs);   // spelling used in the test instructions
 
     // 'screen -s' creates a new process
     interpreter_.registerCommand("screen -s", [this](const std::string& args) {
@@ -129,14 +136,17 @@ void Kernel::onInitialization() {
         return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -ls OR screen -s <process_name> OR screen -r <process_name>"}};
     }, "  screen           - lists processes (-ls), creates (-s <name>) or reattaches (-r <name>)" );
 
-    interpreter_.registerCommand("scheduler-start", [this](const std::string& args) {
+    auto startDummyProcs = [this](const std::string& args) {
         cpu_->setGenerateDummyProcs(true);
         return CommandResult{CommandStatus::SUCCESS, {"Started generating dummy processes"}};
-    }, "  scheduler-start  - starts generating dummy processes" );
+    };
+    interpreter_.registerCommand("scheduler-start", startDummyProcs,
+        "  scheduler-start  - starts generating dummy processes" );
+    interpreter_.registerCommand("scheduler-test", startDummyProcs);   // old name, kept as alias
 
     interpreter_.registerCommand("scheduler-stop", [this](const std::string& args) {
         cpu_->setGenerateDummyProcs(false);
-        return CommandResult{CommandStatus::SUCCESS, {"Stopeeed generating dummy processes"}};
+        return CommandResult{CommandStatus::SUCCESS, {"Stopped generating dummy processes"}};
     }, "  scheduler-stop   - stops generating dummy processes" );
 
     // 'report-util' saves the same report as 'screen -ls' into csopesy-log.txt
@@ -274,13 +284,19 @@ std::shared_ptr<ProcessScreen> Kernel::createProcess(const std::string& name) {
 void Kernel::registerProcess(const std::shared_ptr<ProcessScreen>& process) {
     std::lock_guard<std::mutex> lock(processesMutex_);
     allProcesses_.push_back(process);
+    processNames_.insert(process->getName());
+}
+
+bool Kernel::processNameTaken(const std::string& name) {
+    std::lock_guard<std::mutex> lock(processesMutex_);
+    return processNames_.count(name) > 0;
 }
 
 // Gives the process a random number of instructions between min-ins and max-ins.
 // For now every instruction is the default PRINT from the specs; scheduler-start
 // can replace this with randomized instruction types.
-void Kernel::generateInstructions(ProcessScreen& process, 
-                                  std::optional<int> minIns, 
+void Kernel::generateInstructions(ProcessScreen& process,
+                                  std::optional<int> minIns,
                                   std::optional<int> maxIns) {
     static std::mt19937_64 rng(std::random_device{}());
 
@@ -288,127 +304,43 @@ void Kernel::generateInstructions(ProcessScreen& process,
     int effectiveMax = maxIns.value_or(emulatorConfig_.getMaxIns());
 
     if (effectiveMax < effectiveMin) {
-        throw std::runtime_error("Maximum instruction cannot be less than minimum instructions");
+        throw std::runtime_error(
+            "Maximum instruction cannot be less than minimum instructions"
+        );
     }
 
-    std::uniform_int_distribution<std::uint64_t> countDist(effectiveMin, effectiveMax);
+    std::uniform_int_distribution<std::uint64_t> countDist(
+        effectiveMin, effectiveMax
+    );
 
-    std::uniform_int_distribution<std::uint64_t> sleepDist(1, 1000);
-    std::uniform_int_distribution<std::uint64_t> forInsDist(5, 20);
-    std::uniform_int_distribution<std::uint64_t> forRepeatsDist(3, 10);
-
-    double weightPrint   = 1.0;
-    double weightDeclare = 5.0;
-    double weightAdd     = 8.0;
-    double weightSub     = 6.0;
-    double weightSleep   = 2.0;
-    double weightFor     = 0.1;
-
-    std::discrete_distribution<int> instructionDist({
-        weightPrint, 
-        weightDeclare, 
-        weightAdd,
-        weightSub,
-        weightSleep,
-        weightFor
-    });
+    std::uniform_int_distribution<int> addDist(1, 10);
 
     std::uint64_t instructionCount = countDist(rng);
 
-    std::vector<std::uint64_t> varIndices;
-    varIndices.clear();
-
-    // Helper lambda to randomly generate an Operand (either a literal or a declared variable)
-    auto getRandomOperand = [&](std::mt19937_64& gen) -> Operand {
-        std::uniform_int_distribution<int> typeDist(0, 1); // 0 = literal, 1 = variable
-        bool chooseVar = (typeDist(gen) == 1) && !varIndices.empty();
-
-        if (chooseVar) {
-            std::uniform_int_distribution<size_t> varDist(0, varIndices.size() - 1);
-            std::uint64_t vIndex = varIndices[varDist(gen)];
-            return Operand::variable("var_" + std::to_string(vIndex));
-        } else {
-            std::uniform_int_distribution<int> valDist(0, 100);
-            return Operand::literal(valDist(gen));
-        }
-    };
-
-    // Helper lambda to choose a destination variable name (either an existing variable or "result")
-    auto getRandomDestination = [&](std::mt19937_64& gen) -> std::string {
-        if (!varIndices.empty() && (std::uniform_int_distribution<int>(0, 1)(gen) == 1)) {
-            std::uniform_int_distribution<size_t> varDist(0, varIndices.size() - 1);
-            return "var_" + std::to_string(varIndices[varDist(gen)]);
-        }
-        return "result";
-    };
-
-    // Helper lambda to create a PrintCommand that sometimes injects an existing variable's value
-    auto getRandomPrintCommand = [&](std::mt19937_64& gen, const std::string& prefix) -> std::shared_ptr<PrintCommand> {
-        if (!varIndices.empty() && (std::uniform_int_distribution<int>(0, 1)(gen) == 1)) {
-            std::uniform_int_distribution<size_t> varDist(0, varIndices.size() - 1);
-            std::string varName = "var_" + std::to_string(varIndices[varDist(gen)]);
-            return std::make_shared<PrintCommand>(process.getPID(), prefix + " [" + varName + "]: ", varName);
-        }
-        return std::make_shared<PrintCommand>(process.getPID(), prefix);
-    };
-
     for (std::uint64_t i = 0; i < instructionCount; ++i) {
-        int choice = instructionDist(rng);
 
-        switch (choice) {
-            case 0: { // PrintCommand
-                std::string msg = "Hello from " + process.getName() + " (step " + std::to_string(i) + ")";
-                process.addCommand(getRandomPrintCommand(rng, msg));
-                break;
-            }
-            case 1: { // DeclareCommand
-                varIndices.push_back(i);
-                std::string varName = "var_" + std::to_string(i);
-                process.addCommand(std::make_shared<DeclareCommand>(process.getPID(), varName, 0));
-                break;
-            }
-            case 2: { // AddCommand
-                process.addCommand(std::make_shared<AddCommand>(
-                    process.getPID(), 
-                    getRandomDestination(rng), 
-                    getRandomOperand(rng), 
-                    getRandomOperand(rng)
-                ));
-                break;
-            }
-            case 3: { // SubtractCommand
-                process.addCommand(std::make_shared<SubtractCommand>(
+        if (i % 2 == 0) {
+            // Even index: PRINT the current value of x
+            process.addCommand(
+                std::make_shared<PrintCommand>(
                     process.getPID(),
-                    getRandomDestination(rng),
-                    getRandomOperand(rng),
-                    getRandomOperand(rng)));
-                break;
-            }
-            case 4: { // SleepCommand
-                int ticks = sleepDist(rng);
-                process.addCommand(std::make_shared<SleepCommand>(
-                    process.getPID(), 
-                    5
-                ));
-                break;
-            }
-            case 5: { // ForCommand
-                int forInsCount = forInsDist(rng);
-                int repeats = forRepeatsDist(rng);
+                    "Value from: ",
+                    "x"
+                )
+            );
+        }
+        else {
+            // Odd index: ADD a random value (1-10) to x
+            int increment = addDist(rng);
 
-                std::shared_ptr<ForCommand> forInstr = std::make_shared<ForCommand>(process.getPID(), repeats);
-                process.addCommand(forInstr);
-
-                for (int j=0; j < forInsCount; ++j) {
-                    forInstr->addCommand(std::make_shared<AddCommand>(
-                        process.getPID(), 
-                        "for_adds", 
-                        Operand::literal(static_cast<int>(i)), 
-                        Operand::literal(1)
-                    ));
-                }
-                break;
-            }
+            process.addCommand(
+                std::make_shared<AddCommand>(
+                    process.getPID(),
+                    "x",
+                    Operand::variable("x"),
+                    Operand::literal(increment)
+                )
+            );
         }
     }
 }
@@ -506,7 +438,7 @@ void Kernel::scheduleProcess(std::shared_ptr<ProcessControlBlock> pcb) {
 void Kernel::spawnDummyProcess() {
     // Generate a unique process name using the next available integer ID
     std::string procName = "p_" + std::to_string(nextPid_.load());
-    while (findProcess(procName) != nullptr) {
+    while (processNameTaken(procName)) {
         nextPid_++;
         procName = "p_" + std::to_string(nextPid_.load());
     }

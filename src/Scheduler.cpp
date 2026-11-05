@@ -24,6 +24,14 @@ void Scheduler::addProcess(std::shared_ptr<ProcessControlBlock> pcb) {
     readyQueue_.push(pcb);
 }
 
+std::shared_ptr<ProcessControlBlock> Scheduler::popReady() {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    if (readyQueue_.empty()) return nullptr;
+    std::shared_ptr<ProcessControlBlock> next = readyQueue_.front();
+    readyQueue_.pop();
+    return next;
+}
+
 void Scheduler::addSleepingProcess(std::shared_ptr<ProcessControlBlock> pcb) {
     // 1 CPU tick = CYCLE_DURATION_MS
     auto wakeAt = std::chrono::steady_clock::now() +
@@ -123,6 +131,10 @@ void Scheduler::dispatchToIdleCores(CPU& cpu) {
             nextProcess = readyQueue_.front();
             readyQueue_.pop();
         }
-        cpu.assignProcessToCore(i, nextProcess);
+        // A core may have pulled its own work since the isCoreBusy() check above; if so,
+        // put the process back instead of losing it.
+        if (!cpu.assignProcessToCore(i, nextProcess)) {
+            addProcess(nextProcess);
+        }
     }
 }

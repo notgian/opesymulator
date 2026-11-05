@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <unordered_set>
 
 
 class Kernel {
@@ -25,6 +26,7 @@ public:
     // Process helpers shared by "screen -s" and the startup test processes
     std::shared_ptr<ProcessScreen> createProcess(const std::string& name);
     void registerProcess(const std::shared_ptr<ProcessScreen>& process);
+    bool processNameTaken(const std::string& name);   // O(1), unlike findProcess()
     void generateInstructions(ProcessScreen& process, 
                               std::optional<int> minIns = std::nullopt, 
                               std::optional<int> maxIns = std::nullopt);
@@ -56,6 +58,7 @@ private:
 
     std::vector<std::shared_ptr<ProcessControlBlock>> allProcesses_;
     std::mutex processesMutex_;
+    std::unordered_set<std::string> processNames_;   // guarded by processesMutex_
     std::atomic<int> nextPid_{1};
 
     Config emulatorConfig_;
