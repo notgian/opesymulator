@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <string>
 #include "Scheduler.h"
+
+constexpr std::uint32_t MIN_MEM_RANGE = 64u;    // 2^6
+constexpr std::uint32_t MAX_MEM_RANGE = 65536u; // 2^16
  
 // Outcome of Config::load().
 enum class ConfigLoadStatus {
@@ -12,6 +15,13 @@ enum class ConfigLoadStatus {
     InvalidValue,     // An attribute had an unexpected or out-of-range value
     Reinitialization  // Config has already been initialized
 };
+
+// Returns true if val is a power of 2 within [2^6, 2^16]
+constexpr bool isValidMemoryPowerOfTwo(std::uint64_t val) {
+    return val >= MIN_MEM_RANGE &&
+           val <= MAX_MEM_RANGE &&
+           (val & (val - 1u)) == 0u;
+}
  
 class Config {
 public:
@@ -29,6 +39,12 @@ public:
     std::uint64_t getMinIns() const { return minIns_; }
     std::uint64_t getMaxIns() const { return maxIns_; }
     std::uint64_t getDelaysPerExec() const { return delaysPerExec_; }
+
+    // New getters for MO2 memory parameters.
+    std::uint64_t getMaxMemOverall() const { return maxMemOverall_; }
+    std::uint64_t getMemPerFrame() const { return memPerFrame_; }
+    std::uint64_t getMinMemPerProc() const { return minMemPerProc_; }
+    std::uint64_t getMaxMemPerProc() const { return maxMemPerProc_; }
  
 private:
     // Initialized to the default parameters from the specification.
@@ -40,6 +56,12 @@ private:
     std::uint64_t minIns_ = 1000;
     std::uint64_t maxIns_ = 2000;
     std::uint64_t delaysPerExec_ = 0;
+
+    // new config values for MO2
+    std::uint64_t maxMemOverall_ = MAX_MEM_RANGE;
+    std::uint64_t memPerFrame_ = MIN_MEM_RANGE;
+    std::uint64_t minMemPerProc_ = MIN_MEM_RANGE;
+    std::uint64_t maxMemPerProc_ = MAX_MEM_RANGE;
 
     bool initialized_ = false;
 };
