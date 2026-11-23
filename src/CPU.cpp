@@ -194,6 +194,7 @@ void CPU::workerLoop(int coreId) {
 
         // Finished. Mark TERMINATED and free the core in one atomic step so a "screen -ls"
         // snapshot never sees the process as both running and finished.
+        pcb->releaseMemory();
         finishTurn(coreId, ProcessState::TERMINATED);
     }
 }

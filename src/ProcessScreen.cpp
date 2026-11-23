@@ -1,12 +1,19 @@
 #include "ProcessScreen.h"
 #include <cctype>
 
-ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt)
-    : ProcessControlBlock(pid, name),
+ProcessScreen::ProcessScreen(int pid,
+                             const std::string& name,
+                             int row,
+                             int col,
+                             int width,
+                             int height,
+                             std::size_t allocatedMemoryBytes,
+                             MemoryManager* memoryManager,
+                             const std::string& prompt)
+    : ProcessControlBlock(pid, name, allocatedMemoryBytes, memoryManager),
       ConsoleScreen(row, col, width, height, prompt),
       onExitCallback_(nullptr),
       interpreter_(false) {
-
     interpreter_.registerCommand("process-smi", [this](const std::string&) {
         printLogs();
 

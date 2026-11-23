@@ -9,22 +9,20 @@ PrintCommand::PrintCommand(int pid, const std::string& message, const std::strin
     : ICommand(pid, ICommandType::PRINT), message_(message), varName_(varName) {}
 
 int PrintCommand::execute(SymbolTable& symbolTable) {
-    // The executing core id is injected into the process' symbol table by the PCB
-    int coreId = symbolTable.getVariable("CORE_ID");
+    ProcessControlBlock* parent = getParentProcess();
+    int coreId = parent ? parent->getCurrentCoreId() : 0;
 
     std::string text = message_;
     if (!varName_.empty()) {
-        // Undeclared variables read as 0 (same rule as ADD / SUBTRACT)
+        // Undeclared variables read as 0; ensures symbol table page is resident
         text += std::to_string(symbolTable.getVariable(varName_));
     }
 
     std::string formattedMessage = "(" + currentTimestamp() + "): " + "Core: " + std::to_string(coreId) +
                                    " \"" + text + "\"";
 
-    // Cast the parent process to ProcessScreen to print directly to its screen buffer
-    if (ProcessScreen* screen = dynamic_cast<ProcessScreen*>(getParentProcess())) {
+    if (ProcessScreen* screen = dynamic_cast<ProcessScreen*>(parent)) {
         screen->appendLogs(formattedMessage);
-        // screen->print(formattedMessage);
     }
 
     return 1;

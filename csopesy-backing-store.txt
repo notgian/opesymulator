@@ -1,0 +1,1 @@
+max-overall-mem=65536 mem-per-frame=128 total-frames=512 stored-pages=0 paged-in=0 paged-out=0
