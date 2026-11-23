@@ -38,6 +38,11 @@ REM Put the compiler's folder on PATH so runtime DLLs are found when running mai
 for %%D in ("%GPP%") do set "PATH=%%~dpD;%PATH%"
 
 cd /d "%~dp0"
+
+REM Generate compile_commands.json for tooling (clangd, IDE intellisense, etc.)
+    python -c "import glob, json, os, subprocess; root = os.getcwd(); gpp = os.environ['GPP']; inc = os.path.join(root, 'include'); files = sorted(glob.glob(os.path.join(root, 'src', '*.cpp'))); entries = [{'directory': root, 'file': f, 'command': subprocess.list2cmdline([gpp, '-std=c++17', '-g', '-pthread', f'-I{inc}', '-c', f, '-o', os.path.join(root, 'build_obj', os.path.basename(f) + '.o')])} for f in files]; open(os.path.join(root, 'compile_commands.json'), 'w', encoding='utf-8').write(json.dumps(entries, indent=2))"
+)
+
 if exist main.exe del /f /q main.exe
 
 "%GPP%" -std=c++17 -g -pthread src\*.cpp -Iinclude -o main.exe

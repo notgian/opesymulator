@@ -11,7 +11,15 @@ class ProcessScreen : public ProcessControlBlock, public ConsoleScreen {
 public:
     using OnExitCallback = std::function<void()>;
 
-    ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt = "cmd> ");
+    ProcessScreen(int pid,
+                      const std::string& name,
+                      int row,
+                      int col,
+                      int width,
+                      int height,
+                      std::size_t allocatedMemoryBytes = 64,
+                      MemoryManager* memoryManager = nullptr,
+                      const std::string& prompt = "cmd> ");
 
     void appendLogs(std::string& printContent);
     void printLogs();

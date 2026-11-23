@@ -1,14 +1,19 @@
 #include "ProcessScreen.h"
 #include <cctype>
-#include <sstream>
-#include <algorithm>
 
-ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt)
-    : ProcessControlBlock(pid, name),
+ProcessScreen::ProcessScreen(int pid,
+                             const std::string& name,
+                             int row,
+                             int col,
+                             int width,
+                             int height,
+                             std::size_t allocatedMemoryBytes,
+                             MemoryManager* memoryManager,
+                             const std::string& prompt)
+    : ProcessControlBlock(pid, name, allocatedMemoryBytes, memoryManager),
       ConsoleScreen(row, col, width, height, prompt),
       onExitCallback_(nullptr),
       interpreter_(false) {
-
     interpreter_.registerCommand("process-smi", [this](const std::string&) {
         printLogs();
 
@@ -34,7 +39,7 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
 void ProcessScreen::appendLogs(std::string& printContent) {
     logs_.push_back(printContent);
 }
-    
+
 void ProcessScreen::printLogs() {
     print("\nProcess name: " + getName());
     print("ID: " + std::to_string(getPID()));
@@ -52,7 +57,7 @@ void ProcessScreen::handleKeyPress(char key) {
     std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
     scrollOffset_ = 0;   // typing jumps back to the bottom
     inputBuffer_.push_back(key);
-    refreshDisplay(); 
+    refreshDisplay();
 }
 
 void ProcessScreen::handleBackspace() {

@@ -7,6 +7,8 @@
 #include "Scheduler.h"
 #include "Config.h"
 #include "ProcessScreen.h"
+#include "PhysicalMemory.h"
+#include "MemoryManager.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -23,14 +25,20 @@ public:
 
     Config getConfig();
 
+    bool canAllocateProcessMemory(std::size_t memoryBytes) const;
+
     // Process helpers shared by "screen -s" and the startup test processes
-    std::shared_ptr<ProcessScreen> createProcess(const std::string& name);
+    std::shared_ptr<ProcessScreen> createProcess(const std::string& name, std::size_t memoryBytes);
     void registerProcess(const std::shared_ptr<ProcessScreen>& process);
-    bool processNameTaken(const std::string& name);   // O(1), unlike findProcess()
-    void generateInstructions(ProcessScreen& process, 
-                              std::optional<int> minIns = std::nullopt, 
-                              std::optional<int> maxIns = std::nullopt);
+    bool processNameTaken(const std::string& name);
+    void generateInstructions(ProcessScreen& process,
+        std::optional<int> minIns = std::nullopt,
+        std::optional<int> maxIns = std::nullopt);
     std::shared_ptr<ProcessScreen> findProcess(const std::string& name);
+    std::shared_ptr<ProcessControlBlock> findProcessByPid(int pid);
+
+    PhysicalMemory* getPhysicalMemory() const { return physicalMemory_.get(); }
+    MemoryManager* getMemoryManager() const { return memoryManager_.get(); }
 
     void scheduleProcess(std::shared_ptr<ProcessControlBlock> pcb);
 
@@ -61,9 +69,12 @@ private:
     std::unordered_set<std::string> processNames_;   // guarded by processesMutex_
     std::atomic<int> nextPid_{1};
 
+    std::unique_ptr<PhysicalMemory> physicalMemory_;
+    std::unique_ptr<MemoryManager> memoryManager_;
+
     Config emulatorConfig_;
     void onInitialization();
-    
+
     int screenWidth_;
     int screenHeight_;
     bool running_;

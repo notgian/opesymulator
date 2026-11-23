@@ -10,14 +10,18 @@ constexpr std::uint64_t MAX_2_POW_32 = 4294967296ULL; // 2^32
 
 // Bit flags used to track which required attributes have been seen.
 enum Attr : unsigned {
-    ATTR_NUM_CPU = 1u << 0,
-    ATTR_SCHEDULER = 1u << 1,
-    ATTR_QUANTUM_CYCLES = 1u << 2,
-    ATTR_BATCH_FREQ = 1u << 3,
-    ATTR_MIN_INS = 1u << 4,
-    ATTR_MAX_INS = 1u << 5,
-    ATTR_DELAYS = 1u << 6,
-    ATTR_ALL = (1u << 7) - 1
+    ATTR_NUM_CPU          = 1u << 0,
+    ATTR_SCHEDULER        = 1u << 1,
+    ATTR_QUANTUM_CYCLES   = 1u << 2,
+    ATTR_BATCH_FREQ       = 1u << 3,
+    ATTR_MIN_INS          = 1u << 4,
+    ATTR_MAX_INS          = 1u << 5,
+    ATTR_DELAYS           = 1u << 6,
+    ATTR_MAX_MEM_OVERALL  = 1u << 7,
+    ATTR_MEM_PER_FRAME    = 1u << 8,
+    ATTR_MIN_MEM_PER_PROC = 1u << 9,
+    ATTR_MAX_MEM_PER_PROC = 1u << 10,
+    ATTR_ALL              = (1u << 11) - 1u
 };
 
 // Parses a non-negative decimal integer in [min, max]. Rejects empty
@@ -36,6 +40,15 @@ bool parseUInt(const std::string& s, std::uint64_t min, std::uint64_t max,
     return true;
 }
 
+// Parses a memory size parameter: must be a power of 2 in [2^6, 2^16].
+bool parseMemPowerOfTwo(const std::string& s, std::uint64_t& out) {
+    std::uint64_t value = 0;
+    if (!parseUInt(s, MIN_MEM_RANGE, MAX_MEM_RANGE, value)) return false;
+    if (!isValidMemoryPowerOfTwo(value)) return false;
+    out = value;
+    return true;
+}
+
 // Accepts "fcfs" or "rr", with or without surrounding double quotes.
 bool parseScheduler(std::string s, std::string& out) {
     if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
@@ -48,7 +61,7 @@ bool parseScheduler(std::string s, std::string& out) {
     return false;
 }
 
-}
+} // namespace
 
 ConfigLoadStatus Config::load(const std::string& path) {
     if (initialized_)
@@ -62,6 +75,8 @@ ConfigLoadStatus Config::load(const std::string& path) {
     // Parse into temporaries so a failed load never modifies this object.
     std::uint64_t numCpu = 0, quantum = 0, batchFreq = 0;
     std::uint64_t minIns = 0, maxIns = 0, delays = 0;
+    std::uint64_t maxMemOverall = 0, memPerFrame = 0;
+    std::uint64_t minMemPerProc = 0, maxMemPerProc = 0;
     std::string scheduler;
     unsigned seen = 0;
 
@@ -92,6 +107,10 @@ ConfigLoadStatus Config::load(const std::string& path) {
         // The spec table says "delays-per-exec" but the sample file says
         // "delay-per-exec", so both spellings are accepted.
         else if (key == "delays-per-exec" || key == "delay-per-exec") attr = ATTR_DELAYS;
+        else if (key == "max-overall-mem") attr = ATTR_MAX_MEM_OVERALL;
+        else if (key == "mem-per-frame") attr = ATTR_MEM_PER_FRAME;
+        else if (key == "min-mem-per-proc") attr = ATTR_MIN_MEM_PER_PROC;
+        else if (key == "max-mem-per-proc") attr = ATTR_MAX_MEM_PER_PROC;
         else continue;
 
         // A recognized attribute must have exactly one value.
@@ -120,6 +139,18 @@ ConfigLoadStatus Config::load(const std::string& path) {
             case ATTR_DELAYS:
                 ok = parseUInt(value, 0, MAX_2_POW_32, delays);
                 break;
+            case ATTR_MAX_MEM_OVERALL:
+                ok = parseMemPowerOfTwo(value, maxMemOverall);
+                break;
+            case ATTR_MEM_PER_FRAME:
+                ok = parseMemPowerOfTwo(value, memPerFrame);
+                break;
+            case ATTR_MIN_MEM_PER_PROC:
+                ok = parseMemPowerOfTwo(value, minMemPerProc);
+                break;
+            case ATTR_MAX_MEM_PER_PROC:
+                ok = parseMemPowerOfTwo(value, maxMemPerProc);
+                break;
         }
         if (!ok) return ConfigLoadStatus::InvalidValue;
 
@@ -130,14 +161,20 @@ ConfigLoadStatus Config::load(const std::string& path) {
         return ConfigLoadStatus::MissingAttribute;
     }
 
-    // Cross-field check: a process cannot have a minimum above its maximum.
+    // Cross-field checks.
     if (minIns > maxIns) {
+        return ConfigLoadStatus::InvalidValue;
+    }
+    if (minMemPerProc > maxMemPerProc) {
+        return ConfigLoadStatus::InvalidValue;
+    }
+    if (memPerFrame > maxMemOverall) {
         return ConfigLoadStatus::InvalidValue;
     }
 
     // Everything is valid: commit.
-    numCpu_ = static_cast<std::uint32_t>(numCpu);
-    scheduler_ = scheduler == "fcfs" 
+    numCpu_ = static_cast<std::uint8_t>(numCpu);
+    scheduler_ = scheduler == "fcfs"
         ? SchedulerMode::FCFS
         : SchedulerMode::RR;
     quantumCycles_ = quantum;
@@ -145,6 +182,11 @@ ConfigLoadStatus Config::load(const std::string& path) {
     minIns_ = minIns;
     maxIns_ = maxIns;
     delaysPerExec_ = delays;
+
+    maxMemOverall_ = maxMemOverall;
+    memPerFrame_ = memPerFrame;
+    minMemPerProc_ = minMemPerProc;
+    maxMemPerProc_ = maxMemPerProc;
 
     initialized_ = true;
     return ConfigLoadStatus::Success;

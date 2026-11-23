@@ -1,7 +1,5 @@
 #include "CPU.h"
-#include "Config.h"
 #include "Kernel.h"
-#include <chrono>
 
 CPU::CPU(int numCores, std::uint64_t execDelayCycles, Kernel& kernel)
     : execDelayCycles_(execDelayCycles), kernel_(kernel) {
@@ -196,6 +194,7 @@ void CPU::workerLoop(int coreId) {
 
         // Finished. Mark TERMINATED and free the core in one atomic step so a "screen -ls"
         // snapshot never sees the process as both running and finished.
+        pcb->releaseMemory();
         finishTurn(coreId, ProcessState::TERMINATED);
     }
 }

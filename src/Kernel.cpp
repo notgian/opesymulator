@@ -1,46 +1,55 @@
 #include "Kernel.h"
 #include "PrintCommand.h"
-#include "DeclareCommand.h"
 #include "AddCommand.h"
-#include "SubtractCommand.h"
-#include "SleepCommand.h"
-#include "ForCommand.h"
 #include "ProcessScreen.h"
 #include "Operand.h"
 #include "Config.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <random>
 #include <conio.h>
+#include <string>
 #include <windows.h>
 #include <vector>
+#include <sstream>
 
 namespace {
 
-constexpr const char* REPORT_FILE_PATH = "csopesy-log.txt";
+    constexpr const char* REPORT_FILE_PATH = "csopesy-log.txt";
 
-// Strips leading and trailing spaces from a command argument
-std::string trimSpaces(const std::string& text) {
-    size_t begin = text.find_first_not_of(' ');
-    if (begin == std::string::npos) return "";
-    size_t end = text.find_last_not_of(' ');
-    return text.substr(begin, end - begin + 1);
-}
+    // Strips leading and trailing spaces from a command argument
+    std::string trimSpaces(const std::string& text) {
+        size_t begin = text.find_first_not_of(' ');
+        if (begin == std::string::npos) return "";
+        size_t end = text.find_last_not_of(' ');
+        return text.substr(begin, end - begin + 1);
+    }
 
+    bool parseMemorySizeArg(const std::string& token, std::size_t& outBytes) {
+        if (token.empty()) return false;
+        std::uint64_t val = 0;
+        for (char c : token) {
+            if (c < '0' || c > '9') return false;
+            val = val * 10 + static_cast<std::uint64_t>(c - '0');
+            if (val > MAX_MEM_RANGE) return false;
+        }
+        if (!isValidMemoryPowerOfTwo(val)) return false;
+        outBytes = static_cast<std::size_t>(val);
+        return true;
+    }
 }
 
 Kernel::Kernel(int screenWidth, int screenHeight)
-    : mainDisplay_(screenWidth, screenHeight),
-      consoleScreen_(0, 0, screenWidth, screenHeight, "Command> "),
-      screenWidth_(screenWidth),
-      screenHeight_(screenHeight),
-      activeScreen_(nullptr),
-      running_(true) {
-    
+: mainDisplay_(screenWidth, screenHeight),
+consoleScreen_(0, 0, screenWidth, screenHeight, "Command> "),
+screenWidth_(screenWidth),
+screenHeight_(screenHeight),
+activeScreen_(nullptr),
+running_(true) {
+
     printWelcome();
     consoleScreen_.print("Type 'help' to see the available commands.");
 
@@ -68,6 +77,24 @@ Kernel::Kernel(int screenWidth, int screenHeight)
 }
 
 void Kernel::onInitialization() {
+    // Initialize emulated physical memory and demand-paging memory manager
+    physicalMemory_ = std::make_unique<PhysicalMemory>(
+        static_cast<std::size_t>(emulatorConfig_.getMaxMemOverall()),
+        static_cast<std::size_t>(emulatorConfig_.getMemPerFrame())
+    );
+
+    memoryManager_ = std::make_unique<MemoryManager>(
+        *physicalMemory_,
+        MemoryManager::DEFAULT_BACKING_STORE_PATH,
+        PageReplacementPolicy::FIFO
+    );
+
+    memoryManager_->setEvictionNotifier([this](int victimPid, std::size_t victimVirtualPage, std::size_t backingStoreLine) {
+        if (auto victim = findProcessByPid(victimPid)) {
+            victim->onPageEvicted(victimVirtualPage, backingStoreLine);
+        }
+    });
+
     // Initialize the cpu and scheduler
     cpu_ = std::make_unique<CPU>(emulatorConfig_.getNumCpu(), emulatorConfig_.getDelaysPerExec(), *this);
     scheduler_ = std::make_unique<Scheduler>(emulatorConfig_.getScheduler(), emulatorConfig_.getQuantumCycles());
@@ -99,22 +126,35 @@ void Kernel::onInitialization() {
 
     // 'screen -s' creates a new process
     interpreter_.registerCommand("screen -s", [this](const std::string& args) {
-        std::string procName = trimSpaces(args);
-        if (procName.empty()) {
-            return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -s <process_name>"}};
-        }
-        if (findProcess(procName)) {
-            return CommandResult{CommandStatus::CMD_ERROR, {"Process " + procName + " already exists."}};
-        }
+            std::istringstream iss(args);
+            std::string procName, memToken, extra;
+            if (!(iss >> procName)) {
+                return CommandResult{CommandStatus::CMD_ERROR, {"Usage: screen -s <process_name> <process_memory_size>"}};
+            }
+            if (!(iss >> memToken) || (iss >> extra)) {
+                return CommandResult{CommandStatus::CMD_ERROR, {"invalid memory allocation"}};
+            }
 
-        std::shared_ptr<ProcessScreen> process = createProcess(procName);
-        generateInstructions(*process);
-        registerProcess(process);
-        scheduleProcess(process);
-        // scheduler_->addProcess(process);
+            std::size_t memSize = 0;
+            if (!parseMemorySizeArg(memToken, memSize) || !canAllocateProcessMemory(memSize)) {
+                return CommandResult{CommandStatus::CMD_ERROR, {"invalid memory allocation"}};
+            }
 
-        return CommandResult{CommandStatus::SUCCESS, {"Process '" + procName + "' created!"}};
-    });
+            if (findProcess(procName)) {
+                return CommandResult{CommandStatus::CMD_ERROR, {"Process " + procName + " already exists."}};
+            }
+
+            std::shared_ptr<ProcessScreen> process = createProcess(procName, memSize);
+            if (!process) {
+                return CommandResult{CommandStatus::CMD_ERROR, {"invalid memory allocation"}};
+            }
+
+            generateInstructions(*process);
+            registerProcess(process);
+            scheduleProcess(process);
+
+            return CommandResult{CommandStatus::SUCCESS, {"Process '" + procName + "' created!"}};
+        });
 
     // 'screen -r' reattaches to a process that has not finished yet
     interpreter_.registerCommand("screen -r", [this](const std::string& args) {
@@ -227,7 +267,7 @@ void Kernel::run() {
     // Main (UI) thread: keyboard input + rendering only
     while (running_) {
         std::shared_ptr<ConsoleScreen> active = activeScreen_;
-        ConsoleScreen* currentScreen = active 
+        ConsoleScreen* currentScreen = active
             ? static_cast<ConsoleScreen*>(active.get())
             : static_cast<ConsoleScreen*>(&consoleScreen_);
 
@@ -268,17 +308,6 @@ void Kernel::run() {
     // Shut the scheduler thread and the core worker threads down cleanly
     if (scheduler_) scheduler_->stop();
     if (cpu_) cpu_->stop();
-}
-
-std::shared_ptr<ProcessScreen> Kernel::createProcess(const std::string& name) {
-    auto pcb = std::make_shared<ProcessScreen>(nextPid_++, name, 0, 0, screenWidth_, screenHeight_);
-
-    pcb->setOnExit([this]() {
-        activeScreen_ = nullptr; // Returns control back to consoleScreen_
-        consoleScreen_.print("Returned to main console.");
-    });
-
-    return pcb;
 }
 
 void Kernel::registerProcess(const std::shared_ptr<ProcessScreen>& process) {
@@ -436,15 +465,80 @@ void Kernel::scheduleProcess(std::shared_ptr<ProcessControlBlock> pcb) {
 }
 
 void Kernel::spawnDummyProcess() {
-    // Generate a unique process name using the next available integer ID
+    static std::mt19937_64 rng(std::random_device{}());
+
+    // Collect valid power-of-2 sizes in [min-mem-per-proc, max-mem-per-proc] within available memory
+    std::vector<std::size_t> validSizes;
+    for (std::size_t sz = static_cast<std::size_t>(emulatorConfig_.getMinMemPerProc());
+         sz <= static_cast<std::size_t>(emulatorConfig_.getMaxMemPerProc());
+         sz <<= 1) {
+        if (canAllocateProcessMemory(sz)) {
+            validSizes.push_back(sz);
+        }
+    }
+    if (validSizes.empty()) {
+        return; // Cannot create a process requiring more memory than is available
+    }
+
+    std::uniform_int_distribution<std::size_t> sizeDist(0, validSizes.size() - 1);
+    const std::size_t memBytes = validSizes[sizeDist(rng)];
+
     std::string procName = "p_" + std::to_string(nextPid_.load());
     while (processNameTaken(procName)) {
         nextPid_++;
         procName = "p_" + std::to_string(nextPid_.load());
     }
 
-    std::shared_ptr<ProcessScreen> process = createProcess(procName);
+    std::shared_ptr<ProcessScreen> process = createProcess(procName, memBytes);
+    if (!process) {
+        return;
+    }
+
     generateInstructions(*process);
     registerProcess(process);
     scheduleProcess(process);
+}
+
+bool Kernel::canAllocateProcessMemory(std::size_t memoryBytes) const {
+    if (!isValidMemoryPowerOfTwo(memoryBytes)) {
+        return false;
+    }
+    if (physicalMemory_ && memoryBytes > physicalMemory_->getTotalBytes()) {
+        return false;
+    }
+    return true;
+}
+
+std::shared_ptr<ProcessScreen> Kernel::createProcess(const std::string& name, std::size_t memoryBytes) {
+    if (!canAllocateProcessMemory(memoryBytes)) {
+        return nullptr;
+    }
+
+    auto pcb = std::make_shared<ProcessScreen>(
+        nextPid_++,
+        name,
+        0,
+        0,
+        screenWidth_,
+        screenHeight_,
+        memoryBytes,
+        memoryManager_.get()
+    );
+
+    pcb->setOnExit([this]() {
+        activeScreen_ = nullptr;
+        consoleScreen_.print("Returned to main console.");
+    });
+
+    return pcb;
+}
+
+std::shared_ptr<ProcessControlBlock> Kernel::findProcessByPid(int pid) {
+    std::lock_guard<std::mutex> lock(processesMutex_);
+    for (const auto& pcb : allProcesses_) {
+        if (pcb->getPID() == pid) {
+            return pcb;
+        }
+    }
+    return nullptr;
 }

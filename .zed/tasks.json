@@ -1,0 +1,31 @@
+[
+  {
+    "label": "Build OS Emulator (build.bat)",
+    "command": "& \"$env:ZED_WORKTREE_ROOT\\build.bat\"",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "allow_concurrent_runs": false,
+    "use_new_terminal": false,
+    "hide": "on_success"
+  },
+  {
+    "label": "Build and Run OS Emulator",
+    "command": "& \"$env:ZED_WORKTREE_ROOT\\build.bat\"; if ($LASTEXITCODE -eq 0) { & \"$env:ZED_WORKTREE_ROOT\\main.exe\" }",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "allow_concurrent_runs": false,
+    "use_new_terminal": false,
+    "hide": "on_success"
+  },
+  {
+      "label": "Regenerate compile_commands.json",
+      "command": "cmd.exe",
+      "args": [
+        "/d",
+        "/c",
+        "python -c \"import glob, json, os, shutil, subprocess; root = os.getcwd(); gpp = os.environ.get('GPP') or os.environ.get('GPP_PATH') or shutil.which('g++') or 'C:/mingw64/bin/g++.exe'; inc = os.path.join(root, 'include'); files = sorted(glob.glob(os.path.join(root, 'src', '*.cpp'))); entries = [{'directory': root, 'file': f, 'command': subprocess.list2cmdline([gpp, '-std=c++17', '-g', '-pthread', f'-I{inc}', '-c', f, '-o', os.path.join(root, 'build_obj', os.path.basename(f) + '.o')])} for f in files]; open(os.path.join(root, 'compile_commands.json'), 'w', encoding='utf-8').write(json.dumps(entries, indent=2))\""
+      ],
+      "cwd": "$ZED_WORKTREE_ROOT",
+      "reveal": "never",
+      "hide": "on_success",
+      "allow_concurrent_runs": false
+    }
+]
