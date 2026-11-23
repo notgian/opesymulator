@@ -1,7 +1,5 @@
 #include "ProcessScreen.h"
 #include <cctype>
-#include <sstream>
-#include <algorithm>
 
 ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col, int width, int height, const std::string& prompt)
     : ProcessControlBlock(pid, name),
@@ -34,7 +32,7 @@ ProcessScreen::ProcessScreen(int pid, const std::string& name, int row, int col,
 void ProcessScreen::appendLogs(std::string& printContent) {
     logs_.push_back(printContent);
 }
-    
+
 void ProcessScreen::printLogs() {
     print("\nProcess name: " + getName());
     print("ID: " + std::to_string(getPID()));
@@ -52,7 +50,7 @@ void ProcessScreen::handleKeyPress(char key) {
     std::lock_guard<std::recursive_mutex> lock(screenMutex_); // Protect access
     scrollOffset_ = 0;   // typing jumps back to the bottom
     inputBuffer_.push_back(key);
-    refreshDisplay(); 
+    refreshDisplay();
 }
 
 void ProcessScreen::handleBackspace() {

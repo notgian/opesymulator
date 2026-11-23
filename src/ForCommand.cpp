@@ -1,7 +1,5 @@
 #include "ForCommand.h"
-#include "TimeUtil.h"
-#include "ProcessScreen.h"
-#include <fstream>
+#include <stdexcept>
 
 ForCommand::ForCommand(int pid, int repeats)
     : ICommand(pid, ICommandType::LOOP), repeats_(repeats) {}
@@ -47,7 +45,7 @@ int ForCommand::execute(SymbolTable& symbolTable) {
         reset_();
         return 1;
     }
-    
+
     // Execute the current command that is in the for loop
     int jump = commandList_.at(internalPC_)->execute(symbolTable);
     internalPC_ += jump;

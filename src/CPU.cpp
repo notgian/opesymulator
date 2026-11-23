@@ -1,7 +1,5 @@
 #include "CPU.h"
-#include "Config.h"
 #include "Kernel.h"
-#include <chrono>
 
 CPU::CPU(int numCores, std::uint64_t execDelayCycles, Kernel& kernel)
     : execDelayCycles_(execDelayCycles), kernel_(kernel) {

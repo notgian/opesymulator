@@ -1,0 +1,18 @@
+[
+  {
+    "label": "Build OS Emulator (build.bat)",
+    "command": "& \"$env:ZED_WORKTREE_ROOT\\build.bat\"",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "allow_concurrent_runs": false,
+    "use_new_terminal": false,
+    "hide": "on_success"
+  },
+  {
+    "label": "Build and Run OS Emulator",
+    "command": "& \"$env:ZED_WORKTREE_ROOT\\build.bat\"; if ($LASTEXITCODE -eq 0) { & \"$env:ZED_WORKTREE_ROOT\\main.exe\" }",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "allow_concurrent_runs": false,
+    "use_new_terminal": false,
+    "hide": "on_success"
+  }
+]

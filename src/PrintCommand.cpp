@@ -1,7 +1,6 @@
 #include "PrintCommand.h"
 #include "TimeUtil.h"
 #include "ProcessScreen.h"
-#include <fstream>
 
 PrintCommand::PrintCommand(int pid, const std::string& message)
     : ICommand(pid, ICommandType::PRINT), message_(message) {}

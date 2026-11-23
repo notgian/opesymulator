@@ -1,0 +1,12 @@
+CompileFlags:
+  Add:
+    - "--target=x86_64-w64-mingw32"
+    - "-std=c++17"
+    - "-pthread"
+    - "src/*.cpp"
+    - "-I."
+    - "-Iinclude"
+    - "-I../include"
+
+
+# "%GPP%" -std=c++17 -g -pthread src\*.cpp -Iinclude -o main.exe

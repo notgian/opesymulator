@@ -1,15 +1,10 @@
 #include "Kernel.h"
 #include "PrintCommand.h"
-#include "DeclareCommand.h"
 #include "AddCommand.h"
-#include "SubtractCommand.h"
-#include "SleepCommand.h"
-#include "ForCommand.h"
 #include "ProcessScreen.h"
 #include "Operand.h"
 #include "Config.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -40,7 +35,7 @@ Kernel::Kernel(int screenWidth, int screenHeight)
       screenHeight_(screenHeight),
       activeScreen_(nullptr),
       running_(true) {
-    
+
     printWelcome();
     consoleScreen_.print("Type 'help' to see the available commands.");
 
@@ -227,7 +222,7 @@ void Kernel::run() {
     // Main (UI) thread: keyboard input + rendering only
     while (running_) {
         std::shared_ptr<ConsoleScreen> active = activeScreen_;
-        ConsoleScreen* currentScreen = active 
+        ConsoleScreen* currentScreen = active
             ? static_cast<ConsoleScreen*>(active.get())
             : static_cast<ConsoleScreen*>(&consoleScreen_);
 
